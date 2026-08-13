@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  border-color: #1f2733;
+}
+
+body {
+  background: radial-gradient(1200px 600px at 50% -10%, #10151f 0%, #080b12 60%);
+}
+
+.status-ok { color: #34d399; }
+.status-faltando { color: #f5624f; }
+.status-danificado { color: #f5a524; }
+
+.badge {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+}
