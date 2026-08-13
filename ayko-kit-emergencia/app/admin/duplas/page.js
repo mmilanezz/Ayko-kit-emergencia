@@ -66,7 +66,7 @@ export default function DuplasPage() {
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      defaultValue={d.kit_id || ""}
+                      value={d.kit_id || ""}
                       onChange={(e) => vincularKit(d.id, e.target.value)}
                       className="rounded bg-bg border border-border px-2 py-1.5 text-sm outline-none focus:border-purple"
                     >
@@ -111,7 +111,7 @@ export default function DuplasPage() {
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      defaultValue={p.role}
+                      value={p.role}
                       onChange={(e) => atualizarPerfil(p.id, "role", e.target.value)}
                       className="rounded bg-bg border border-border px-2 py-1.5 text-sm outline-none focus:border-purple"
                     >
@@ -122,7 +122,7 @@ export default function DuplasPage() {
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      defaultValue={p.dupla_id || ""}
+                      value={p.dupla_id || ""}
                       onChange={(e) => atualizarPerfil(p.id, "dupla_id", e.target.value || null)}
                       className="rounded bg-bg border border-border px-2 py-1.5 text-sm outline-none focus:border-purple"
                       disabled={p.role !== "tecnico"}
@@ -142,3 +142,5 @@ export default function DuplasPage() {
     </main>
   );
 }
+
+fix: select de vínculo kit-dupla' 
