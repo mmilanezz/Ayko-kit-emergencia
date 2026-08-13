@@ -23,7 +23,7 @@ export default function TopBar({ titulo, subtitulo }) {
       </div>
       <button
         onClick={sair}
-        className="text-sm text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition"
+        className="text-sm text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition no-print"
       >
         Sair
       </button>

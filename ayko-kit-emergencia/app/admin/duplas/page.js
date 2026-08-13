@@ -8,7 +8,8 @@ export default function DuplasPage() {
   const supabase = createClient();
   const [duplas, setDuplas] = useState([]);
   const [kits, setKits] = useState([]);
-  const [perfis, setPerfis] = useState([]);
+  const [novoNome, setNovoNome] = useState("");
+  const [criando, setCriando] = useState(false);
 
   useEffect(() => {
     carregar();
@@ -20,13 +21,25 @@ export default function DuplasPage() {
 
     const { data: kitsData } = await supabase.from("kits").select("*").order("nome");
     setKits(kitsData || []);
+  }
 
-    const { data: perfisData } = await supabase.from("profiles").select("*").order("nome");
-    setPerfis(perfisData || []);
+  async function criarDupla(e) {
+    e.preventDefault();
+    if (!novoNome.trim()) return;
+    setCriando(true);
+    const { error } = await supabase.from("duplas").insert({ nome: novoNome.trim() });
+    setCriando(false);
+    if (error) {
+      alert("Erro ao criar dupla: " + error.message);
+      return;
+    }
+    setNovoNome("");
+    carregar();
   }
 
   async function renomearDupla(id, nome) {
-    await supabase.from("duplas").update({ nome }).eq("id", id);
+    const { error } = await supabase.from("duplas").update({ nome }).eq("id", id);
+    if (error) alert("Erro ao renomear: " + error.message);
   }
 
   async function vincularKit(duplaId, kitId) {
@@ -38,36 +51,67 @@ export default function DuplasPage() {
 
     if (error) {
       alert("Erro ao vincular kit: " + error.message);
-      console.error(error);
       return;
     }
     if (!data || data.length === 0) {
+      alert("A atualização não foi aplicada. Confirme se seu usuário está com papel 'admin'.");
+      return;
+    }
+    carregar();
+  }
+
+  async function excluirDupla(id, nome) {
+    const { count } = await supabase
+      .from("conferencias")
+      .select("id", { count: "exact", head: true })
+      .eq("dupla_id", id);
+
+    if (count && count > 0) {
       alert(
-        "A atualização não foi aplicada (0 linhas afetadas). Provavelmente é bloqueio de permissão (RLS) — confirme se seu usuário está com papel 'admin' na tabela profiles."
+        `"${nome}" tem ${count} conferência(s) registrada(s) no histórico e não pode ser excluída (isso preserva o histórico). Se quiser, desvincule o kit e renomeie como "inativa" em vez de excluir.`
       );
       return;
     }
 
-    carregar();
-  }
+    if (!confirm(`Excluir a dupla "${nome}"? Essa ação não pode ser desfeita.`)) return;
 
-  async function atualizarPerfil(id, campo, valor) {
-    await supabase.from("profiles").update({ [campo]: valor }).eq("id", id);
+    const { error } = await supabase.from("duplas").delete().eq("id", id);
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
     carregar();
   }
 
   return (
     <main className="pb-16">
-      <TopBar titulo="Duplas & Usuários" subtitulo="Vínculo entre técnicos, duplas e kits" />
+      <TopBar titulo="Duplas" subtitulo="Criação e vínculo de duplas com os kits" />
 
       <section className="p-6">
-        <h2 className="text-sm font-medium text-slate-400 mb-3">Duplas</h2>
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <form onSubmit={criarDupla} className="flex gap-2 mb-6">
+          <input
+            type="text"
+            value={novoNome}
+            onChange={(e) => setNovoNome(e.target.value)}
+            placeholder="Nome da nova dupla (ex: Dupla 9 - Fulano / Ciclano)"
+            className="flex-1 rounded-lg bg-card border border-border px-3 py-2 text-sm outline-none focus:border-purple"
+          />
+          <button
+            type="submit"
+            disabled={criando}
+            className="rounded-lg bg-purple hover:bg-purple/90 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 transition"
+          >
+            {criando ? "Criando..." : "+ Nova dupla"}
+          </button>
+        </form>
+
+        <div className="bg-card border border-border rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-slate-500 text-xs uppercase">
               <tr className="border-b border-border">
                 <th className="text-left px-4 py-3">Nome da dupla</th>
                 <th className="text-left px-4 py-3">Kit vinculado</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +122,7 @@ export default function DuplasPage() {
                       type="text"
                       defaultValue={d.nome}
                       onBlur={(e) => renomearDupla(d.id, e.target.value)}
-                      className="rounded bg-bg border border-border px-2 py-1 text-sm outline-none focus:border-purple w-64"
+                      className="rounded bg-bg border border-border px-2 py-1 text-sm outline-none focus:border-purple w-72"
                     />
                   </td>
                   <td className="px-4 py-3">
@@ -93,65 +137,23 @@ export default function DuplasPage() {
                       ))}
                     </select>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="px-6">
-        <h2 className="text-sm font-medium text-slate-400 mb-3">Usuários</h2>
-        <p className="text-xs text-slate-500 mb-3">
-          Para criar um novo login, adicione o usuário em Supabase → Authentication → Add user.
-          Ele aparece aqui automaticamente com papel "técnico" — ajuste o papel e a dupla abaixo.
-        </p>
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="text-slate-500 text-xs uppercase">
-              <tr className="border-b border-border">
-                <th className="text-left px-4 py-3">Nome</th>
-                <th className="text-left px-4 py-3">Papel</th>
-                <th className="text-left px-4 py-3">Dupla</th>
-              </tr>
-            </thead>
-            <tbody>
-              {perfis.map((p) => (
-                <tr key={p.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      defaultValue={p.nome}
-                      onBlur={(e) => atualizarPerfil(p.id, "nome", e.target.value)}
-                      className="rounded bg-bg border border-border px-2 py-1 text-sm outline-none focus:border-purple w-48"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={p.role}
-                      onChange={(e) => atualizarPerfil(p.id, "role", e.target.value)}
-                      className="rounded bg-bg border border-border px-2 py-1.5 text-sm outline-none focus:border-purple"
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => excluirDupla(d.id, d.nome)}
+                      className="text-xs text-red hover:underline"
                     >
-                      <option value="tecnico">Técnico</option>
-                      <option value="suprimentos">Suprimentos</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={p.dupla_id || ""}
-                      onChange={(e) => atualizarPerfil(p.id, "dupla_id", e.target.value || null)}
-                      className="rounded bg-bg border border-border px-2 py-1.5 text-sm outline-none focus:border-purple"
-                      disabled={p.role !== "tecnico"}
-                    >
-                      <option value="">— nenhuma —</option>
-                      {duplas.map((d) => (
-                        <option key={d.id} value={d.id}>{d.nome}</option>
-                      ))}
-                    </select>
+                      Excluir
+                    </button>
                   </td>
                 </tr>
               ))}
+              {duplas.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-slate-500">
+                    Nenhuma dupla cadastrada ainda.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

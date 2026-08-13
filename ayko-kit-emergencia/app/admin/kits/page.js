@@ -80,7 +80,7 @@ export default function KitsPage() {
 
       <section className="p-6">
         <h2 className="text-sm font-medium text-slate-400 mb-3">Catálogo de tipos de item</h2>
-        <div className="bg-card border border-border rounded-xl overflow-hidden mb-4">
+        <div className="bg-card border border-border rounded-xl overflow-x-auto mb-4">
           <table className="w-full text-sm">
             <thead className="text-slate-500 text-xs uppercase">
               <tr className="border-b border-border">
@@ -155,7 +155,7 @@ export default function KitsPage() {
           ))}
         </select>
 
-        <div className="bg-card border border-border rounded-xl overflow-hidden mb-4">
+        <div className="bg-card border border-border rounded-xl overflow-x-auto mb-4">
           <table className="w-full text-sm">
             <thead className="text-slate-500 text-xs uppercase">
               <tr className="border-b border-border">

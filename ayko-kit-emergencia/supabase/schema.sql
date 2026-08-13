@@ -135,11 +135,11 @@ create trigger on_auth_user_created
 -- HELPERS de papel/dupla (usados nas policies de RLS)
 -- ---------------------------------------------------------
 
-create or replace function public.current_role() returns text as $$
+create or replace function public.app_current_role() returns text as $$
   select role from public.profiles where id = auth.uid();
 $$ language sql stable security definer;
 
-create or replace function public.current_dupla() returns uuid as $$
+create or replace function public.app_current_dupla() returns uuid as $$
   select dupla_id from public.profiles where id = auth.uid();
 $$ language sql stable security definer;
 
@@ -158,43 +158,49 @@ alter table reposicoes enable row level security;
 
 -- profiles: cada um vê o próprio; admin vê todos
 create policy "profiles_select_own_or_admin" on profiles for select
-  using (id = auth.uid() or current_role() = 'admin');
+  using (id = auth.uid() or app_current_role() = 'admin');
 create policy "profiles_admin_write" on profiles for all
-  using (current_role() = 'admin') with check (current_role() = 'admin');
+  using (app_current_role() = 'admin') with check (app_current_role() = 'admin');
 
 -- kits, duplas, item_tipos: admin CRUD completo; demais papéis leem tudo
-create policy "kits_read_all" on kits for select using (true);
-create policy "kits_admin_write" on kits for insert with check (current_role() = 'admin');
-create policy "kits_admin_update" on kits for update using (current_role() = 'admin');
-create policy "kits_admin_delete" on kits for delete using (current_role() = 'admin');
+create policy "kits_read_admin_suprimentos" on kits for select
+  using (app_current_role() in ('admin','suprimentos'));
+create policy "kits_read_own_tecnico" on kits for select
+  using (app_current_role() = 'tecnico' and id = (select kit_id from duplas where id = app_current_dupla()));
+create policy "kits_admin_write" on kits for insert with check (app_current_role() = 'admin');
+create policy "kits_admin_update" on kits for update using (app_current_role() = 'admin');
+create policy "kits_admin_delete" on kits for delete using (app_current_role() = 'admin');
 
-create policy "duplas_read_all" on duplas for select using (true);
-create policy "duplas_admin_write" on duplas for insert with check (current_role() = 'admin');
-create policy "duplas_admin_update" on duplas for update using (current_role() = 'admin');
-create policy "duplas_admin_delete" on duplas for delete using (current_role() = 'admin');
+create policy "duplas_read_admin_suprimentos" on duplas for select
+  using (app_current_role() in ('admin','suprimentos'));
+create policy "duplas_read_own_tecnico" on duplas for select
+  using (app_current_role() = 'tecnico' and id = app_current_dupla());
+create policy "duplas_admin_write" on duplas for insert with check (app_current_role() = 'admin');
+create policy "duplas_admin_update" on duplas for update using (app_current_role() = 'admin');
+create policy "duplas_admin_delete" on duplas for delete using (app_current_role() = 'admin');
 
 create policy "item_tipos_read_all" on item_tipos for select using (true);
-create policy "item_tipos_admin_write" on item_tipos for insert with check (current_role() = 'admin');
-create policy "item_tipos_admin_update" on item_tipos for update using (current_role() = 'admin');
-create policy "item_tipos_admin_delete" on item_tipos for delete using (current_role() = 'admin');
+create policy "item_tipos_admin_write" on item_tipos for insert with check (app_current_role() = 'admin');
+create policy "item_tipos_admin_update" on item_tipos for update using (app_current_role() = 'admin');
+create policy "item_tipos_admin_delete" on item_tipos for delete using (app_current_role() = 'admin');
 
 -- kit_item_instancias: admin CRUD total; técnico só lê/atualiza status do kit da própria dupla; suprimentos lê tudo
 create policy "instancias_admin_all" on kit_item_instancias for all
-  using (current_role() = 'admin') with check (current_role() = 'admin');
+  using (app_current_role() = 'admin') with check (app_current_role() = 'admin');
 create policy "instancias_read_suprimentos" on kit_item_instancias for select
-  using (current_role() = 'suprimentos');
+  using (app_current_role() = 'suprimentos');
 create policy "instancias_read_tecnico" on kit_item_instancias for select
-  using (current_role() = 'tecnico' and kit_id = (select kit_id from duplas where id = current_dupla()));
+  using (app_current_role() = 'tecnico' and kit_id = (select kit_id from duplas where id = app_current_dupla()));
 create policy "instancias_update_tecnico" on kit_item_instancias for update
-  using (current_role() = 'tecnico' and kit_id = (select kit_id from duplas where id = current_dupla()));
+  using (app_current_role() = 'tecnico' and kit_id = (select kit_id from duplas where id = app_current_dupla()));
 
 -- conferencias: técnico cria/lê as da própria dupla; admin e suprimentos leem todas
 create policy "conferencias_insert_tecnico" on conferencias for insert
-  with check (current_role() = 'tecnico' and dupla_id = current_dupla());
+  with check (app_current_role() = 'tecnico' and dupla_id = app_current_dupla());
 create policy "conferencias_select_tecnico" on conferencias for select
-  using (current_role() = 'tecnico' and dupla_id = current_dupla());
+  using (app_current_role() = 'tecnico' and dupla_id = app_current_dupla());
 create policy "conferencias_select_admin_suprimentos" on conferencias for select
-  using (current_role() in ('admin','suprimentos'));
+  using (app_current_role() in ('admin','suprimentos'));
 
 -- conferencia_itens: segue a mesma regra da conferência-pai
 create policy "conferencia_itens_insert_tecnico" on conferencia_itens for insert
@@ -202,8 +208,8 @@ create policy "conferencia_itens_insert_tecnico" on conferencia_itens for insert
     exists (
       select 1 from conferencias c
       where c.id = conferencia_id
-        and current_role() = 'tecnico'
-        and c.dupla_id = current_dupla()
+        and app_current_role() = 'tecnico'
+        and c.dupla_id = app_current_dupla()
     )
   );
 create policy "conferencia_itens_select_tecnico" on conferencia_itens for select
@@ -211,18 +217,18 @@ create policy "conferencia_itens_select_tecnico" on conferencia_itens for select
     exists (
       select 1 from conferencias c
       where c.id = conferencia_id
-        and current_role() = 'tecnico'
-        and c.dupla_id = current_dupla()
+        and app_current_role() = 'tecnico'
+        and c.dupla_id = app_current_dupla()
     )
   );
 create policy "conferencia_itens_select_admin_suprimentos" on conferencia_itens for select
-  using (current_role() in ('admin','suprimentos'));
+  using (app_current_role() in ('admin','suprimentos'));
 
 -- reposicoes: admin e suprimentos leem/atualizam; suprimentos marca como atendida
 create policy "reposicoes_select_admin_suprimentos" on reposicoes for select
-  using (current_role() in ('admin','suprimentos'));
+  using (app_current_role() in ('admin','suprimentos'));
 create policy "reposicoes_update_admin_suprimentos" on reposicoes for update
-  using (current_role() in ('admin','suprimentos'));
+  using (app_current_role() in ('admin','suprimentos'));
 
 -- ---------------------------------------------------------
 -- SEED: catálogo padrão do kit emergência (sua listagem)

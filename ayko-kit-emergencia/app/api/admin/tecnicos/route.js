@@ -26,7 +26,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
   }
 
-  const { nome, email, senha, dupla_id } = await request.json();
+  const { nome, email, senha, dupla_id, role } = await request.json();
 
   if (!nome || !email || !senha) {
     return NextResponse.json(
@@ -40,6 +40,7 @@ export async function POST(request) {
       { status: 400 }
     );
   }
+  const papel = ["tecnico", "suprimentos"].includes(role) ? role : "tecnico";
 
   const supabaseAdmin = createAdminClient();
 
@@ -56,10 +57,14 @@ export async function POST(request) {
   }
 
   // o trigger on_auth_user_created já criou o profile com role 'tecnico';
-  // aqui garantimos que o nome e a dupla ficam certos desde o início
+  // aqui garantimos que nome, papel e dupla ficam certos desde o início
   const { error: erroPerfil } = await supabaseAdmin
     .from("profiles")
-    .update({ nome, dupla_id: dupla_id || null })
+    .update({
+      nome,
+      role: papel,
+      dupla_id: papel === "tecnico" ? dupla_id || null : null,
+    })
     .eq("id", criado.user.id);
 
   if (erroPerfil) {

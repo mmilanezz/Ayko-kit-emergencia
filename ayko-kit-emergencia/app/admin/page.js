@@ -70,7 +70,7 @@ export default function AdminDashboard() {
     <main>
       <TopBar titulo="Dashboard" subtitulo="Status dos kits em tempo real" />
 
-      <div className="p-6 grid grid-cols-3 gap-4">
+      <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-xs text-slate-400 mb-1">Kits totais</p>
           <p className="text-2xl font-semibold">{kits.length}</p>
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="px-6 grid grid-cols-2 gap-4 mb-6">
+      <div className="px-6 grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
           <h2 className="text-sm font-medium text-slate-400 mb-3">Status por kit</h2>
           <div className="space-y-2">

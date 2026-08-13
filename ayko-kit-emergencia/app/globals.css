@@ -19,3 +19,22 @@ body {
 .badge {
   @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .print-area {
+    border: none !important;
+    background: white !important;
+  }
+  .print-area * {
+    color: black !important;
+    background: white !important;
+    border-color: #ccc !important;
+  }
+}

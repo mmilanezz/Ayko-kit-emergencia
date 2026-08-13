@@ -41,7 +41,7 @@ export default function TecnicoPage() {
 
     const { data: perfilData } = await supabase
       .from("profiles")
-      .select("*, duplas(*)")
+      .select("*, duplas(*, kits(nome))")
       .eq("id", user.id)
       .single();
 
@@ -141,6 +141,27 @@ export default function TecnicoPage() {
     if (erroItens) {
       alert("Erro ao registrar itens: " + erroItens.message);
       return;
+    }
+
+    // notifica o Suprimentos por e-mail se algum item ficou pendente
+    // (best-effort: não bloqueia o fluxo se o e-mail falhar)
+    const itensPendentes = itens
+      .filter((item) => (respostas[item.id]?.status || "ok") !== "ok")
+      .map((item) => ({
+        nome: item.item_tipos?.nome,
+        status: STATUS_LABEL[respostas[item.id]?.status],
+      }));
+
+    if (itensPendentes.length > 0) {
+      fetch("/api/notificar-reposicao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          duplaNome: dupla.nome,
+          kitNome: dupla.kits?.nome || "",
+          itens: itensPendentes,
+        }),
+      }).catch(() => {});
     }
 
     setSucesso(true);

@@ -38,7 +38,51 @@ técnico) e vincule cada técnico à dupla certa.
 > ```
 > (o UUID aparece na lista de Authentication → Users)
 
-## 3. Rodar localmente
+## 3. Segurança extra: rodar o patch de RLS
+
+Se você já rodou o `schema.sql` original antes desta atualização, rode
+também `supabase/patch-seguranca-rls.sql` no SQL Editor do Supabase — ele
+fecha uma brecha onde um técnico logado conseguia, por fora da tela,
+consultar diretamente o banco e ver a lista de todas as duplas e kits
+(não só o próprio). Depois desse patch, cada técnico só enxerga a própria
+dupla e o próprio kit em qualquer consulta, não só na tela.
+
+Se você está criando o projeto do zero agora, pode pular esse passo — o
+`schema.sql` já vem com essa proteção desde o início.
+
+## 4. App para os técnicos (PWA)
+
+O sistema agora é instalável como um app no celular, sem precisar de loja
+de aplicativos:
+
+- **Android (Chrome):** abrir o site → menu (⋮) → "Adicionar à tela
+  inicial" ou "Instalar app".
+- **iPhone (Safari):** abrir o site → ícone de compartilhar → "Adicionar à
+  Tela de Início".
+
+Depois de instalado, abre em tela cheia, com ícone próprio, sem barra de
+navegador — visualmente idêntico a um app nativo. Isso já está pronto
+nesta versão (manifest + ícones + service worker), não exige nenhuma
+configuração extra da sua parte.
+
+## 5. Notificação por e-mail (opcional, mas recomendado)
+
+Quando uma conferência gera pendência de reposição, o sistema pode avisar o
+Suprimentos por e-mail automaticamente. Isso usa o [Resend](https://resend.com),
+que tem plano gratuito.
+
+1. Crie uma conta em resend.com (pode usar login com Google).
+2. No painel, vá em **API Keys → Create API Key** e copie o valor gerado.
+3. Na Vercel, adicione duas variáveis de ambiente (Production and Preview):
+   - `RESEND_API_KEY` → a chave que você copiou
+   - `SUPRIMENTOS_EMAIL` → o e-mail que deve receber os avisos
+4. Redeploy.
+
+Se você pular essa parte, o sistema funciona normalmente — só não manda
+e-mail (a pendência continua aparecendo no Dashboard e na tela do
+Suprimentos de qualquer forma).
+
+## 6. Rodar localmente
 
 ```bash
 npm install
@@ -49,7 +93,7 @@ npm run dev
 
 Acesse `http://localhost:3000` — você será redirecionado pro login.
 
-## 4. Publicar (Vercel)
+## 7. Publicar (Vercel)
 
 1. Suba este projeto para um repositório no GitHub.
 2. Em [vercel.com](https://vercel.com) → **Add New Project** → importe o repositório.
