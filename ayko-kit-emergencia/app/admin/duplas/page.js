@@ -30,7 +30,24 @@ export default function DuplasPage() {
   }
 
   async function vincularKit(duplaId, kitId) {
-    await supabase.from("duplas").update({ kit_id: kitId || null }).eq("id", duplaId);
+    const { data, error } = await supabase
+      .from("duplas")
+      .update({ kit_id: kitId || null })
+      .eq("id", duplaId)
+      .select();
+
+    if (error) {
+      alert("Erro ao vincular kit: " + error.message);
+      console.error(error);
+      return;
+    }
+    if (!data || data.length === 0) {
+      alert(
+        "A atualização não foi aplicada (0 linhas afetadas). Provavelmente é bloqueio de permissão (RLS) — confirme se seu usuário está com papel 'admin' na tabela profiles."
+      );
+      return;
+    }
+
     carregar();
   }
 
