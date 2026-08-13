@@ -142,5 +142,3 @@ export default function DuplasPage() {
     </main>
   );
 }
-
-fix: select de vínculo kit-dupla' 
