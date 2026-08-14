@@ -26,7 +26,7 @@ export default function AdminDashboard() {
 
     const { data: reposicoes } = await supabase
       .from("reposicoes")
-      .select("id, status, created_at, kits(nome), item_tipos(nome)")
+      .select("id, status, created_at, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
       .eq("status", "pendente")
       .order("created_at", { ascending: false });
     setReposicoesPendentes(reposicoes || []);
@@ -124,6 +124,9 @@ export default function AdminDashboard() {
                   <span className="font-medium">{r.item_tipos?.nome}</span>
                   <span className="text-slate-500 text-xs">{r.kits?.nome}</span>
                 </div>
+                <p className="text-xs text-purple mb-2">
+                  {r.profiles?.nome || "—"} · {r.duplas?.nome || ""}
+                </p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500">
                     {new Date(r.created_at).toLocaleString("pt-BR")}

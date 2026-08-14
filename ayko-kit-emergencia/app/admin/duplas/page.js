@@ -88,6 +88,12 @@ export default function DuplasPage() {
       <TopBar titulo="Duplas" subtitulo="Criação e vínculo de duplas com os kits" />
 
       <section className="p-6">
+        <p className="text-xs text-slate-500 mb-4">
+          O nome de cada dupla agora é definido automaticamente pela junção
+          dos nomes dos técnicos vinculados a ela (em Usuários). Renomear
+          aqui manualmente só faz sentido pra duplas ainda sem os 2
+          técnicos definidos.
+        </p>
         <form onSubmit={criarDupla} className="flex gap-2 mb-6">
           <input
             type="text"

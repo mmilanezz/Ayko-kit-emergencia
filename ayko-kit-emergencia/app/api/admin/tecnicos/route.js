@@ -74,6 +74,39 @@ export async function POST(request) {
   return NextResponse.json({ ok: true, id: criado.user.id });
 }
 
+export async function PATCH(request) {
+  const admin = await exigirAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
+  }
+
+  const { id, status } = await request.json();
+
+  if (!id || !["ativo", "inativo", "ferias"].includes(status)) {
+    return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+  }
+
+  const supabaseAdmin = createAdminClient();
+
+  // "inativo" também bloqueia o login de fato; os outros status liberam
+  const { error: erroBan } = await supabaseAdmin.auth.admin.updateUserById(id, {
+    ban_duration: status === "inativo" ? "876000h" : "none",
+  });
+  if (erroBan) {
+    return NextResponse.json({ error: erroBan.message }, { status: 400 });
+  }
+
+  const { error: erroPerfil } = await supabaseAdmin
+    .from("profiles")
+    .update({ status })
+    .eq("id", id);
+  if (erroPerfil) {
+    return NextResponse.json({ error: erroPerfil.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(request) {
   const admin = await exigirAdmin();
   if (!admin) {

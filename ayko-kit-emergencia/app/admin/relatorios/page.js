@@ -43,7 +43,7 @@ export default function RelatoriosPage() {
 
     const { data: reposicoesData } = await supabase
       .from("reposicoes")
-      .select("*, kits(nome), item_tipos(nome)")
+      .select("*, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
       .order("created_at", { ascending: false })
       .limit(200);
     setReposicoes(reposicoesData || []);
@@ -81,6 +81,8 @@ export default function RelatoriosPage() {
 
     const reposicoesLinhas = reposicoes.map((r) => ({
       Item: r.item_tipos?.nome || "",
+      "Solicitado por": r.profiles?.nome || "",
+      Dupla: r.duplas?.nome || "",
       Kit: r.kits?.nome || "",
       Status: r.status === "pendente" ? "Pendente" : "Atendida",
       "Gerada em": new Date(r.created_at).toLocaleString("pt-BR"),
@@ -242,6 +244,7 @@ export default function RelatoriosPage() {
               <thead className="text-slate-500 text-xs uppercase">
                 <tr className="border-b border-border">
                   <th className="text-left px-4 py-3">Item</th>
+                  <th className="text-left px-4 py-3">Solicitado por</th>
                   <th className="text-left px-4 py-3">Kit</th>
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Gerada em</th>
@@ -252,6 +255,10 @@ export default function RelatoriosPage() {
                 {reposicoes.map((r) => (
                   <tr key={r.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3">{r.item_tipos?.nome}</td>
+                    <td className="px-4 py-3">
+                      {r.profiles?.nome || "—"}
+                      {r.duplas?.nome && <span className="text-slate-500"> ({r.duplas.nome})</span>}
+                    </td>
                     <td className="px-4 py-3">{r.kits?.nome}</td>
                     <td className="px-4 py-3">
                       <span
@@ -268,7 +275,7 @@ export default function RelatoriosPage() {
                 ))}
                 {!carregando && reposicoes.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                       Nenhuma reposição encontrada.
                     </td>
                   </tr>

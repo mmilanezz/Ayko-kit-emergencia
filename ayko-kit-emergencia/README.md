@@ -38,7 +38,32 @@ técnico) e vincule cada técnico à dupla certa.
 > ```
 > (o UUID aparece na lista de Authentication → Users)
 
-## 3. Segurança extra: rodar o patch de RLS
+## 3. Novidades v2: rodar o patch de melhorias
+
+Se você já tem o banco criado, rode `supabase/patch-v2-melhorias.sql` no
+SQL Editor do Supabase. Ele adiciona:
+
+- **Status do usuário** (ativo/inativo/férias) — "inativo" já bloqueia o
+  login de verdade, não é só um rótulo.
+- **Nome automático da dupla**: sempre que você vincula um técnico a uma
+  dupla em Usuários, o nome dela vira automaticamente a junção dos nomes
+  dos técnicos ("Fulano / Ciclano").
+- **Nome automático do kit**: quando um kit é vinculado a uma dupla (em
+  Duplas), o nome dele vira "Kit - Fulano / Ciclano".
+- **Uso em campo**: o técnico agora tem uma segunda aba na tela dele
+  ("Usei em campo") pra registrar que consumiu um item durante um
+  atendimento, já com o número do chamado do Halo — isso gera a
+  reposição na hora, sem esperar a próxima conferência de handoff.
+- **Solicitante visível pro Suprimentos**: toda reposição agora mostra
+  claramente qual técnico e qual dupla pediram, não só o kit.
+
+Se você está criando o projeto do zero agora a partir do `schema.sql`
+atual, esse patch **também precisa ser rodado** — essas melhorias ainda
+não foram incorporadas ao `schema.sql` principal (rode os dois, nessa
+ordem: `schema.sql` primeiro, depois `patch-seguranca-rls.sql`, depois
+`patch-v2-melhorias.sql`).
+
+## 4. Segurança extra: rodar o patch de RLS
 
 Se você já rodou o `schema.sql` original antes desta atualização, rode
 também `supabase/patch-seguranca-rls.sql` no SQL Editor do Supabase — ele
@@ -50,7 +75,7 @@ dupla e o próprio kit em qualquer consulta, não só na tela.
 Se você está criando o projeto do zero agora, pode pular esse passo — o
 `schema.sql` já vem com essa proteção desde o início.
 
-## 4. App para os técnicos (PWA)
+## 5. App para os técnicos (PWA)
 
 O sistema agora é instalável como um app no celular, sem precisar de loja
 de aplicativos:
@@ -65,7 +90,7 @@ navegador — visualmente idêntico a um app nativo. Isso já está pronto
 nesta versão (manifest + ícones + service worker), não exige nenhuma
 configuração extra da sua parte.
 
-## 5. Notificação por e-mail (opcional, mas recomendado)
+## 6. Notificação por e-mail (opcional, mas recomendado)
 
 Quando uma conferência gera pendência de reposição, o sistema pode avisar o
 Suprimentos por e-mail automaticamente. Isso usa o [Resend](https://resend.com),
@@ -82,7 +107,7 @@ Se você pular essa parte, o sistema funciona normalmente — só não manda
 e-mail (a pendência continua aparecendo no Dashboard e na tela do
 Suprimentos de qualquer forma).
 
-## 6. Rodar localmente
+## 7. Rodar localmente
 
 ```bash
 npm install
@@ -93,7 +118,7 @@ npm run dev
 
 Acesse `http://localhost:3000` — você será redirecionado pro login.
 
-## 7. Publicar (Vercel)
+## 8. Publicar (Vercel)
 
 1. Suba este projeto para um repositório no GitHub.
 2. Em [vercel.com](https://vercel.com) → **Add New Project** → importe o repositório.
