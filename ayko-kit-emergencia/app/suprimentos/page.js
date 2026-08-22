@@ -48,14 +48,14 @@ export default function SuprimentosPage() {
   async function carregar() {
     const { data: ativasData } = await supabase
       .from("reposicoes")
-      .select("id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
+      .select("id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
       .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
     setAtivas(ativasData || []);
 
     const { data: entreguesData } = await supabase
       .from("reposicoes")
-      .select("id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
+      .select("id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
       .eq("status", "entregue")
       .order("atendida_at", { ascending: false })
       .limit(15);
