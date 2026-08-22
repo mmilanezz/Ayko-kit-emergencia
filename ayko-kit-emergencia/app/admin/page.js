@@ -26,7 +26,7 @@ export default function AdminDashboard() {
 
     const { data: reposicoes } = await supabase
       .from("reposicoes")
-      .select("id, status, created_at, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
+      .select("id, status, created_at, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
       .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
     setReposicoesPendentes(reposicoes || []);
