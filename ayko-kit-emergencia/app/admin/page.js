@@ -27,7 +27,7 @@ export default function AdminDashboard() {
     const { data: reposicoes } = await supabase
       .from("reposicoes")
       .select("id, status, created_at, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
-      .eq("status", "pendente")
+      .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
     setReposicoesPendentes(reposicoes || []);
 
@@ -39,14 +39,6 @@ export default function AdminDashboard() {
     setConferenciasRecentes(conferencias || []);
 
     setCarregando(false);
-  }
-
-  async function marcarAtendida(id) {
-    await supabase
-      .from("reposicoes")
-      .update({ status: "atendida", atendida_at: new Date().toISOString() })
-      .eq("id", id);
-    carregar();
   }
 
   function statusKit(kit) {
@@ -131,12 +123,19 @@ export default function AdminDashboard() {
                   <span className="text-xs text-slate-500">
                     {new Date(r.created_at).toLocaleString("pt-BR")}
                   </span>
-                  <button
-                    onClick={() => marcarAtendida(r.id)}
-                    className="text-xs text-purple hover:underline"
+                  <span
+                    className={`badge ${
+                      r.status === "pendente"
+                        ? "bg-orange/15 text-orange"
+                        : "bg-blue/15 text-blue"
+                    }`}
                   >
-                    Marcar como atendida
-                  </button>
+                    {
+                      { pendente: "Pendente", separando: "Separando", separado: "Separado", pronto_retirada: "Pronto p/ retirada" }[
+                        r.status
+                      ]
+                    }
+                  </span>
                 </div>
               </div>
             ))}

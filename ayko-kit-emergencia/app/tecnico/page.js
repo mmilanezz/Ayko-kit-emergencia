@@ -4,27 +4,45 @@ import { useEffect, useState } from "react";
 import { createClient } from "../../lib/supabaseClient";
 import TopBar from "../../components/TopBar";
 
-const STATUS_LABEL = {
-  ok: "OK",
-  faltando: "Faltando",
-  danificado: "Danificado",
-};
-
+const STATUS_LABEL = { ok: "OK", faltando: "Faltando", danificado: "Danificado" };
 const STATUS_COLOR = {
   ok: "bg-green/15 text-green",
   faltando: "bg-red/15 text-red",
   danificado: "bg-orange/15 text-orange",
 };
 
+const STATUS_REPOSICAO_LABEL = {
+  pendente: "Pendente",
+  separando: "Separando",
+  separado: "Separado",
+  pronto_retirada: "Pronto p/ retirada",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+  bloqueado: "Bloqueado",
+};
+const STATUS_REPOSICAO_COLOR = {
+  pendente: "bg-orange/15 text-orange",
+  separando: "bg-blue/15 text-blue",
+  separado: "bg-blue/15 text-blue",
+  pronto_retirada: "bg-purple/15 text-purple",
+  entregue: "bg-green/15 text-green",
+  cancelado: "bg-red/15 text-red",
+  bloqueado: "bg-red/15 text-red",
+};
+
+const MOTIVOS = ["Incidente", "Ativação", "Troca", "Reparo", "Emergencial", "Outro"];
+
 export default function TecnicoPage() {
   const supabase = createClient();
-  const [aba, setAba] = useState("conferencia");
+  const [aba, setAba] = useState("meukit");
   const [carregando, setCarregando] = useState(true);
   const [perfil, setPerfil] = useState(null);
   const [dupla, setDupla] = useState(null);
-  const [itens, setItens] = useState([]);
+  const [itens, setItens] = useState([]); // kit_item_instancias (modo unidade)
+  const [parConfig, setParConfig] = useState([]); // kit_material_config
+  const [saldoQuantidade, setSaldoQuantidade] = useState([]); // kit_saldo_material
 
-  // -- conferência (recebimento/devolução) --
+  // -- conferência --
   const [respostas, setRespostas] = useState({});
   const [tipoConferencia, setTipoConferencia] = useState("recebimento");
   const [observacoes, setObservacoes] = useState("");
@@ -32,13 +50,18 @@ export default function TecnicoPage() {
   const [sucesso, setSucesso] = useState(false);
   const [historico, setHistorico] = useState([]);
 
-  // -- uso em campo --
-  const [itemUsoId, setItemUsoId] = useState("");
+  // -- usar material --
+  const [selecaoUso, setSelecaoUso] = useState("");
+  const [quantidadeUso, setQuantidadeUso] = useState(1);
   const [chamadoHalo, setChamadoHalo] = useState("");
+  const [motivoUso, setMotivoUso] = useState("");
   const [obsUso, setObsUso] = useState("");
   const [enviandoUso, setEnviandoUso] = useState(false);
   const [sucessoUso, setSucessoUso] = useState(false);
   const [usosRecentes, setUsosRecentes] = useState([]);
+
+  // -- minhas reposições --
+  const [reposicoes, setReposicoes] = useState([]);
 
   useEffect(() => {
     carregarDados();
@@ -52,7 +75,7 @@ export default function TecnicoPage() {
 
     const { data: perfilData } = await supabase
       .from("profiles")
-      .select("*, duplas(*, kits(nome))")
+      .select("*, duplas(*, kits(nome), veiculos(placa, modelo))")
       .eq("id", user.id)
       .single();
 
@@ -60,22 +83,32 @@ export default function TecnicoPage() {
     setDupla(perfilData?.duplas);
 
     if (perfilData?.duplas?.kit_id) {
+      const kitId = perfilData.duplas.kit_id;
+
       const { data: instancias } = await supabase
         .from("kit_item_instancias")
-        .select("*, item_tipos(nome, requer_identificacao)")
-        .eq("kit_id", perfilData.duplas.kit_id)
+        .select("*, item_tipos(nome, tipo_controle, requer_identificacao)")
+        .eq("kit_id", kitId)
         .order("created_at");
-
       setItens(instancias || []);
 
       const respostasIniciais = {};
       (instancias || []).forEach((i) => {
-        respostasIniciais[i.id] = {
-          status: "ok",
-          identificacao: i.identificacao || "",
-        };
+        respostasIniciais[i.id] = { status: "ok", identificacao: i.identificacao || "" };
       });
       setRespostas(respostasIniciais);
+
+      const { data: par } = await supabase
+        .from("kit_material_config")
+        .select("*, item_tipos(nome, tipo_controle)")
+        .eq("kit_id", kitId);
+      setParConfig(par || []);
+
+      const { data: saldos } = await supabase
+        .from("kit_saldo_material")
+        .select("*, item_tipos(nome)")
+        .eq("kit_id", kitId);
+      setSaldoQuantidade(saldos || []);
 
       const { data: conferenciasAnteriores } = await supabase
         .from("conferencias")
@@ -87,21 +120,26 @@ export default function TecnicoPage() {
 
       const { data: usos } = await supabase
         .from("usos_campo")
-        .select("id, chamado_halo_id, observacao, created_at, kit_item_instancias(item_tipos(nome))")
+        .select("id, chamado_halo_id, motivo, quantidade, created_at, kit_item_instancias(item_tipos(nome)), item_tipos(nome)")
         .eq("dupla_id", perfilData.dupla_id)
         .order("created_at", { ascending: false })
         .limit(5);
       setUsosRecentes(usos || []);
+
+      const { data: repos } = await supabase
+        .from("reposicoes")
+        .select("*, item_tipos(nome)")
+        .eq("dupla_id", perfilData.dupla_id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      setReposicoes(repos || []);
     }
 
     setCarregando(false);
   }
 
   function atualizarResposta(instanciaId, campo, valor) {
-    setRespostas((prev) => ({
-      ...prev,
-      [instanciaId]: { ...prev[instanciaId], [campo]: valor },
-    }));
+    setRespostas((prev) => ({ ...prev, [instanciaId]: { ...prev[instanciaId], [campo]: valor } }));
   }
 
   async function enviarConferencia(e) {
@@ -136,9 +174,7 @@ export default function TecnicoPage() {
       observacao: null,
     }));
 
-    const { error: erroItens } = await supabase
-      .from("conferencia_itens")
-      .insert(linhasItens);
+    const { error: erroItens } = await supabase.from("conferencia_itens").insert(linhasItens);
 
     await Promise.all(
       itens.map((item) =>
@@ -162,20 +198,13 @@ export default function TecnicoPage() {
 
     const itensPendentes = itens
       .filter((item) => (respostas[item.id]?.status || "ok") !== "ok")
-      .map((item) => ({
-        nome: item.item_tipos?.nome,
-        status: STATUS_LABEL[respostas[item.id]?.status],
-      }));
+      .map((item) => ({ nome: item.item_tipos?.nome, status: STATUS_LABEL[respostas[item.id]?.status] }));
 
     if (itensPendentes.length > 0) {
       fetch("/api/notificar-reposicao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          duplaNome: dupla.nome,
-          kitNome: dupla.kits?.nome || "",
-          itens: itensPendentes,
-        }),
+        body: JSON.stringify({ duplaNome: dupla.nome, kitNome: dupla.kits?.nome || "", itens: itensPendentes }),
       }).catch(() => {});
     }
 
@@ -184,43 +213,57 @@ export default function TecnicoPage() {
     setTimeout(() => setSucesso(false), 4000);
   }
 
-  async function enviarUsoEmCampo(e) {
+  async function enviarUsoMaterial(e) {
     e.preventDefault();
-    if (!itemUsoId || !chamadoHalo.trim()) return;
+    if (!selecaoUso || !chamadoHalo.trim() || !motivoUso) return;
 
     setEnviandoUso(true);
-
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("usos_campo").insert({
-      instancia_id: itemUsoId,
+    const [modo, id] = selecaoUso.split(":");
+    const payload = {
       tecnico_id: user.id,
       dupla_id: perfil.dupla_id,
       chamado_halo_id: chamadoHalo.trim(),
+      motivo: motivoUso,
       observacao: obsUso || null,
-    });
+      quantidade: modo === "quantidade" ? Number(quantidadeUso) || 1 : 1,
+    };
+    if (modo === "instancia") {
+      payload.instancia_id = id;
+    } else {
+      payload.kit_id = dupla.kit_id;
+      payload.item_tipo_id = id;
+    }
 
+    const { error } = await supabase.from("usos_campo").insert(payload);
     setEnviandoUso(false);
 
     if (error) {
-      alert("Erro ao registrar uso em campo: " + error.message);
+      alert("Erro ao registrar uso: " + error.message);
       return;
     }
 
-    const itemUsado = itens.find((i) => i.id === itemUsoId);
+    const nomeItem =
+      modo === "instancia"
+        ? itens.find((i) => i.id === id)?.item_tipos?.nome
+        : parConfig.find((p) => p.item_tipo_id === id)?.item_tipos?.nome;
+
     fetch("/api/notificar-reposicao", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         duplaNome: dupla.nome,
         kitNome: dupla.kits?.nome || "",
-        itens: [{ nome: itemUsado?.item_tipos?.nome, status: `Usado em campo — chamado Halo ${chamadoHalo.trim()}` }],
+        itens: [{ nome: nomeItem, status: `${motivoUso} — chamado Halo ${chamadoHalo.trim()}` }],
       }),
     }).catch(() => {});
 
     setSucessoUso(true);
-    setItemUsoId("");
+    setSelecaoUso("");
+    setQuantidadeUso(1);
     setChamadoHalo("");
+    setMotivoUso("");
     setObsUso("");
     carregarDados();
     setTimeout(() => setSucessoUso(false), 4000);
@@ -239,40 +282,108 @@ export default function TecnicoPage() {
     return (
       <main>
         <TopBar titulo="Kit Emergência" />
-        <p className="p-6 text-slate-400">
-          Sua dupla ainda não tem um kit vinculado. Fale com o administrador.
-        </p>
+        <p className="p-6 text-slate-400">Sua dupla ainda não tem um kit vinculado. Fale com o administrador.</p>
       </main>
     );
   }
 
   const faltandoOuDanificado = Object.values(respostas).filter((r) => r.status !== "ok").length;
 
+  const itensUnidadeOk = itens.filter((i) => i.status === "ok");
+  const opcoesUso = [
+    ...itensUnidadeOk.map((i) => ({
+      value: `instancia:${i.id}`,
+      label: `${i.item_tipos?.nome}${i.identificacao ? ` (${i.identificacao})` : ""}`,
+      modo: "instancia",
+    })),
+    ...parConfig
+      .filter((p) => p.item_tipos?.tipo_controle === "quantidade")
+      .map((p) => ({
+        value: `quantidade:${p.item_tipo_id}`,
+        label: `${p.item_tipos?.nome} (por quantidade)`,
+        modo: "quantidade",
+      })),
+  ];
+
+  // resumo "Meu Kit": PAR configurado vs quantidade atual, por material
+  const resumoMateriais = parConfig.map((p) => {
+    const tipoControle = p.item_tipos?.tipo_controle || "unidade";
+    let atual;
+    if (tipoControle === "quantidade") {
+      atual = saldoQuantidade.find((s) => s.item_tipo_id === p.item_tipo_id)?.quantidade_atual ?? 0;
+    } else {
+      atual = itens.filter((i) => i.item_tipo_id === p.item_tipo_id && i.status === "ok").length;
+    }
+    return { nome: p.item_tipos?.nome, par: p.quantidade_par, atual };
+  });
+
   return (
     <main className="max-w-2xl mx-auto pb-20">
       <TopBar titulo={dupla.nome} subtitulo={`Olá, ${perfil.nome} · ${dupla.kits?.nome || ""}`} />
 
-      <div className="px-6 mt-6 flex gap-2">
-        <button
-          onClick={() => setAba("conferencia")}
-          className={`flex-1 rounded-lg py-2.5 text-sm font-medium border transition ${
-            aba === "conferencia" ? "bg-purple/15 border-purple text-purple" : "border-border text-slate-400"
-          }`}
-        >
-          Conferência
-        </button>
-        <button
-          onClick={() => setAba("uso")}
-          className={`flex-1 rounded-lg py-2.5 text-sm font-medium border transition ${
-            aba === "uso" ? "bg-purple/15 border-purple text-purple" : "border-border text-slate-400"
-          }`}
-        >
-          Usei em campo
-        </button>
+      <div className="px-6 mt-6 grid grid-cols-4 gap-1.5">
+        {[
+          ["meukit", "Meu Kit"],
+          ["conferencia", "Conferência"],
+          ["usar", "Usar Material"],
+          ["reposicoes", "Reposições"],
+        ].map(([valor, label]) => (
+          <button
+            key={valor}
+            onClick={() => setAba(valor)}
+            className={`rounded-lg py-2 text-xs font-medium border transition ${
+              aba === valor ? "bg-purple/15 border-purple text-purple" : "border-border text-slate-400"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
+      {aba === "meukit" && (
+        <div className="px-6 mt-5 space-y-3">
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Kit</p>
+                <p className="font-medium">{dupla.kits?.nome || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Veículo atual</p>
+                <p className="font-medium">
+                  {dupla.veiculos ? `${dupla.veiculos.placa} · ${dupla.veiculos.modelo || ""}` : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-medium text-slate-400 mb-3">Materiais do kit</h2>
+            <div className="space-y-2">
+              {resumoMateriais.map((m, idx) => {
+                const completo = m.atual >= m.par;
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 text-sm"
+                  >
+                    <span>{m.nome}</span>
+                    <span className={`badge ${completo ? "bg-green/15 text-green" : "bg-orange/15 text-orange"}`}>
+                      {m.atual} / {m.par}
+                    </span>
+                  </div>
+                );
+              })}
+              {resumoMateriais.length === 0 && (
+                <p className="text-sm text-slate-500">Nenhum material configurado neste kit ainda.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {aba === "conferencia" && (
-        <form onSubmit={enviarConferencia} className="px-6 mt-4">
+        <form onSubmit={enviarConferencia} className="px-6 mt-5">
           <div className="bg-card border border-border rounded-2xl p-5 mb-5">
             <label className="block text-sm text-slate-400 mb-2">Tipo de conferência</label>
             <div className="flex gap-2">
@@ -282,9 +393,7 @@ export default function TecnicoPage() {
                   key={tipo}
                   onClick={() => setTipoConferencia(tipo)}
                   className={`flex-1 rounded-lg py-2.5 text-sm font-medium border transition ${
-                    tipoConferencia === tipo
-                      ? "bg-purple/15 border-purple text-purple"
-                      : "border-border text-slate-400"
+                    tipoConferencia === tipo ? "bg-purple/15 border-purple text-purple" : "border-border text-slate-400"
                   }`}
                 >
                   {tipo === "recebimento" ? "Recebimento do carro" : "Devolução do carro"}
@@ -300,9 +409,7 @@ export default function TecnicoPage() {
                 <div key={item.id} className="bg-card border border-border rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-medium text-sm">{item.item_tipos?.nome}</p>
-                    <span className={`badge ${STATUS_COLOR[resposta.status]}`}>
-                      {STATUS_LABEL[resposta.status]}
-                    </span>
+                    <span className={`badge ${STATUS_COLOR[resposta.status]}`}>{STATUS_LABEL[resposta.status]}</span>
                   </div>
 
                   <div className="flex gap-2 mb-3">
@@ -312,9 +419,7 @@ export default function TecnicoPage() {
                         key={s}
                         onClick={() => atualizarResposta(item.id, "status", s)}
                         className={`flex-1 rounded-lg py-2 text-xs font-medium border transition ${
-                          resposta.status === s
-                            ? STATUS_COLOR[s] + " border-transparent"
-                            : "border-border text-slate-500"
+                          resposta.status === s ? STATUS_COLOR[s] + " border-transparent" : "border-border text-slate-500"
                         }`}
                       >
                         {STATUS_LABEL[s]}
@@ -352,7 +457,6 @@ export default function TecnicoPage() {
               {faltandoOuDanificado} item(ns) serão enviados como pendência de reposição.
             </p>
           )}
-
           {sucesso && <p className="text-sm text-green mt-4">Conferência registrada com sucesso.</p>}
 
           <button
@@ -379,28 +483,54 @@ export default function TecnicoPage() {
         </form>
       )}
 
-      {aba === "uso" && (
-        <div className="px-6 mt-4">
+      {aba === "usar" && (
+        <div className="px-6 mt-5">
           <p className="text-xs text-slate-500 mb-4">
-            Usou um item do kit direto num atendimento? Registre aqui com o
-            número do chamado no Halo — a reposição já é gerada na hora,
-            sem precisar esperar a próxima conferência.
+            Usou um material do kit direto num atendimento? Registre aqui — a
+            reposição já é gerada na hora, sem esperar a próxima conferência.
           </p>
 
-          <form onSubmit={enviarUsoEmCampo} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <form onSubmit={enviarUsoMaterial} className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Qual item você usou?</label>
+              <label className="block text-sm text-slate-400 mb-2">O que você usou?</label>
               <select
                 required
-                value={itemUsoId}
-                onChange={(e) => setItemUsoId(e.target.value)}
+                value={selecaoUso}
+                onChange={(e) => setSelecaoUso(e.target.value)}
                 className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
               >
-                <option value="">Selecione o item</option>
-                {itens.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.item_tipos?.nome}{item.identificacao ? ` (${item.identificacao})` : ""}
-                  </option>
+                <option value="">Selecione o material</option>
+                {opcoesUso.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {selecaoUso.startsWith("quantidade:") && (
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Quantidade</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={quantidadeUso}
+                  onChange={(e) => setQuantidadeUso(e.target.value)}
+                  className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Motivo</label>
+              <select
+                required
+                value={motivoUso}
+                onChange={(e) => setMotivoUso(e.target.value)}
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+              >
+                <option value="">Selecione o motivo</option>
+                {MOTIVOS.map((m) => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
@@ -427,9 +557,7 @@ export default function TecnicoPage() {
               />
             </div>
 
-            {sucessoUso && (
-              <p className="text-sm text-green">Uso registrado — reposição já foi gerada.</p>
-            )}
+            {sucessoUso && <p className="text-sm text-green">Uso registrado — reposição já foi gerada.</p>}
 
             <button
               type="submit"
@@ -447,15 +575,43 @@ export default function TecnicoPage() {
                 {usosRecentes.map((u) => (
                   <div key={u.id} className="bg-card border border-border rounded-lg px-4 py-3 text-sm">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium">{u.kit_item_instancias?.item_tipos?.nome}</span>
+                      <span className="font-medium">
+                        {u.kit_item_instancias?.item_tipos?.nome || u.item_tipos?.nome} × {u.quantidade}
+                      </span>
                       <span className="text-slate-500 text-xs">Halo #{u.chamado_halo_id}</span>
                     </div>
-                    <span className="text-slate-500 text-xs">{new Date(u.created_at).toLocaleString("pt-BR")}</span>
+                    <span className="text-slate-500 text-xs">
+                      {u.motivo} · {new Date(u.created_at).toLocaleString("pt-BR")}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {aba === "reposicoes" && (
+        <div className="px-6 mt-5 space-y-2">
+          {reposicoes.length === 0 && (
+            <p className="text-sm text-slate-500">Nenhuma reposição registrada ainda.</p>
+          )}
+          {reposicoes.map((r) => (
+            <div key={r.id} className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium text-sm">{r.item_tipos?.nome} × {r.quantidade}</span>
+                <span className={`badge ${STATUS_REPOSICAO_COLOR[r.status]}`}>
+                  {STATUS_REPOSICAO_LABEL[r.status]}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>{new Date(r.created_at).toLocaleString("pt-BR")}</span>
+                {r.codigo_retirada && (
+                  <span className="font-mono text-purple">Código: {r.codigo_retirada}</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </main>
