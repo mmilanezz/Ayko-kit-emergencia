@@ -43,7 +43,7 @@ export default function RelatoriosPage() {
 
     const { data: reposicoesData } = await supabase
       .from("reposicoes")
-      .select("*, kits(nome), item_tipos(nome), duplas(nome), profiles(nome)")
+      .select("*, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
       .order("created_at", { ascending: false })
       .limit(200);
     setReposicoes(reposicoesData || []);
@@ -84,7 +84,7 @@ export default function RelatoriosPage() {
       "Solicitado por": r.profiles?.nome || "",
       Dupla: r.duplas?.nome || "",
       Kit: r.kits?.nome || "",
-      Status: r.status === "pendente" ? "Pendente" : "Atendida",
+      Status: { pendente: "Pendente", separando: "Separando", separado: "Separado", pronto_retirada: "Pronto p/ retirada", entregue: "Entregue", cancelado: "Cancelado", bloqueado: "Bloqueado" }[r.status] || r.status,
       "Gerada em": new Date(r.created_at).toLocaleString("pt-BR"),
       "Atendida em": r.atendida_at ? new Date(r.atendida_at).toLocaleString("pt-BR") : "",
       "Chamado Halo": r.chamado_halo_id || "",
@@ -263,10 +263,18 @@ export default function RelatoriosPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`badge ${
-                          r.status === "pendente" ? "bg-red/15 text-red" : "bg-green/15 text-green"
+                          r.status === "entregue"
+                            ? "bg-green/15 text-green"
+                            : r.status === "cancelado" || r.status === "bloqueado"
+                            ? "bg-red/15 text-red"
+                            : "bg-orange/15 text-orange"
                         }`}
                       >
-                        {r.status === "pendente" ? "Pendente" : "Atendida"}
+                        {
+                          { pendente: "Pendente", separando: "Separando", separado: "Separado", pronto_retirada: "Pronto p/ retirada", entregue: "Entregue", cancelado: "Cancelado", bloqueado: "Bloqueado" }[
+                            r.status
+                          ] || r.status
+                        }
                       </span>
                     </td>
                     <td className="px-4 py-3">{new Date(r.created_at).toLocaleString("pt-BR")}</td>
