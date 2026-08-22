@@ -1,4 +1,4 @@
-const CACHE_NAME = "ayko-kit-v1";
+const CACHE_NAME = "ayko-kit-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -8,10 +8,16 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// estratégia network-first: sempre tenta buscar a versão mais nova;
-// só usa o cache se o dispositivo estiver sem internet.
+// estratégia network-first, mas SÓ pra arquivos do próprio site (GET,
+// mesmo domínio). Qualquer chamada de API (Supabase, etc) passa direto,
+// sem o service worker interferir — nunca deve ser cacheada.
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  const mesmoOrigem = url.origin === self.location.origin;
+
+  if (event.request.method !== "GET" || !mesmoOrigem) {
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)
