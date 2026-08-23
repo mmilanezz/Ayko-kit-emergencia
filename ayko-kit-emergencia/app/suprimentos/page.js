@@ -40,6 +40,8 @@ export default function SuprimentosPage() {
   const [ativas, setAtivas] = useState([]);
   const [entregues, setEntregues] = useState([]);
   const [chamadoInput, setChamadoInput] = useState({});
+  const [agruparPor, setAgruparPor] = useState("tecnico"); // "tecnico" | "dupla"
+  const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
     carregar();
@@ -98,10 +100,59 @@ export default function SuprimentosPage() {
       <TopBar titulo="Reposições" subtitulo="Fila de reposição dos kits emergência" />
 
       <section className="p-6">
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Agrupar por</label>
+            <select
+              value={agruparPor}
+              onChange={(e) => { setAgruparPor(e.target.value); setFiltro(""); }}
+              className="rounded-lg bg-card border border-border px-3 py-2 text-sm outline-none focus:border-purple"
+            >
+              <option value="tecnico">Técnico</option>
+              <option value="dupla">Dupla</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">
+              {agruparPor === "tecnico" ? "Ver só um técnico" : "Ver só uma dupla"}
+            </label>
+            <select
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              className="rounded-lg bg-card border border-border px-3 py-2 text-sm outline-none focus:border-purple min-w-[200px]"
+            >
+              <option value="">Todos</option>
+              {[...new Set(
+                ativas.map((r) => (agruparPor === "tecnico" ? r.profiles?.nome : r.duplas?.nome)).filter(Boolean)
+              )].map((nome) => (
+                <option key={nome} value={nome}>{nome}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <h2 className="text-sm font-medium text-slate-400 mb-3">Ativas ({ativas.length})</h2>
         {ativas.length === 0 && <p className="text-sm text-slate-500">Nenhuma pendência no momento.</p>}
-        <div className="space-y-2">
-          {ativas.map((r) => (
+
+        {Object.entries(
+          ativas
+            .filter((r) => {
+              const chave = agruparPor === "tecnico" ? r.profiles?.nome : r.duplas?.nome;
+              return !filtro || chave === filtro;
+            })
+            .reduce((grupos, r) => {
+              const chave = (agruparPor === "tecnico" ? r.profiles?.nome : r.duplas?.nome) || "Não identificado";
+              grupos[chave] = grupos[chave] || [];
+              grupos[chave].push(r);
+              return grupos;
+            }, {})
+        ).map(([chave, itensGrupo]) => (
+          <div key={chave} className="mb-6">
+            <p className="text-xs font-mono uppercase tracking-widest text-slate-500 mb-2">
+              {chave} · {itensGrupo.length}
+            </p>
+            <div className="space-y-2">
+          {itensGrupo.map((r) => (
             <div key={r.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-start justify-between mb-2">
                 <div>
@@ -137,7 +188,9 @@ export default function SuprimentosPage() {
               </div>
             </div>
           ))}
-        </div>
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="px-6">
