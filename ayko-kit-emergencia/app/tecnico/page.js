@@ -65,6 +65,16 @@ export default function TecnicoPage() {
   // -- minhas reposições --
   const [reposicoes, setReposicoes] = useState([]);
 
+  // -- solicitação extraordinária --
+  const [materialExtra, setMaterialExtra] = useState("");
+  const [quantidadeExtra, setQuantidadeExtra] = useState(1);
+  const [motivoExtra, setMotivoExtra] = useState("");
+  const [chamadoExtra, setChamadoExtra] = useState("");
+  const [obsExtra, setObsExtra] = useState("");
+  const [enviandoExtra, setEnviandoExtra] = useState(false);
+  const [sucessoExtra, setSucessoExtra] = useState(false);
+  const [extrasRecentes, setExtrasRecentes] = useState([]);
+
   useEffect(() => {
     carregarDados();
   }, []);
@@ -143,6 +153,14 @@ export default function TecnicoPage() {
         .order("created_at", { ascending: false })
         .limit(20);
       setReposicoes(repos || []);
+
+      const { data: extras } = await supabase
+        .from("solicitacoes_extraordinarias")
+        .select("id, material_nome, quantidade, motivo, created_at")
+        .eq("dupla_id", perfilData.dupla_id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setExtrasRecentes(extras || []);
     }
 
     setCarregando(false);
@@ -295,6 +313,41 @@ export default function TecnicoPage() {
     setTimeout(() => setSucessoUso(false), 4000);
   }
 
+  async function enviarSolicitacaoExtra(e) {
+    e.preventDefault();
+    if (!materialExtra.trim() || !motivoExtra.trim()) return;
+
+    setEnviandoExtra(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase.from("solicitacoes_extraordinarias").insert({
+      tecnico_id: user.id,
+      dupla_id: perfil.dupla_id,
+      kit_id: dupla.kit_id,
+      material_nome: materialExtra.trim(),
+      quantidade: Number(quantidadeExtra) || 1,
+      motivo: motivoExtra.trim(),
+      chamado_halo_id: chamadoExtra || null,
+      observacao: obsExtra || null,
+    });
+
+    setEnviandoExtra(false);
+
+    if (error) {
+      alert("Erro ao registrar solicitação: " + error.message);
+      return;
+    }
+
+    setSucessoExtra(true);
+    setMaterialExtra("");
+    setQuantidadeExtra(1);
+    setMotivoExtra("");
+    setChamadoExtra("");
+    setObsExtra("");
+    carregarDados();
+    setTimeout(() => setSucessoExtra(false), 4000);
+  }
+
   if (carregando) {
     return (
       <main>
@@ -347,11 +400,12 @@ export default function TecnicoPage() {
     <main className="max-w-2xl mx-auto pb-20">
       <TopBar titulo={dupla.nome} subtitulo={`Olá, ${perfil.nome} · ${dupla.kits?.nome || ""}`} />
 
-      <div className="px-6 mt-6 grid grid-cols-4 gap-1.5">
+      <div className="px-6 mt-6 grid grid-cols-5 gap-1.5">
         {[
           ["meukit", "Meu Kit"],
           ["conferencia", "Conferência"],
           ["usar", "Usar Material"],
+          ["extra", "Extra"],
           ["reposicoes", "Reposições"],
         ].map(([valor, label]) => (
           <button
@@ -637,6 +691,101 @@ export default function TecnicoPage() {
         </div>
       )}
 
+      {aba === "extra" && (
+        <div className="px-6 mt-5">
+          <p className="text-xs text-slate-500 mb-4">
+            Precisa de um material que <strong>não faz parte</strong> do seu
+            kit? Use isso aqui — é diferente da reposição automática, e o
+            Suprimentos vê como uma solicitação extraordinária, separada.
+          </p>
+
+          <form onSubmit={enviarSolicitacaoExtra} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Material</label>
+              <input
+                type="text"
+                required
+                value={materialExtra}
+                onChange={(e) => setMaterialExtra(e.target.value)}
+                placeholder="ex: SFP 10G"
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Quantidade</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={quantidadeExtra}
+                onChange={(e) => setQuantidadeExtra(e.target.value)}
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Motivo</label>
+              <input
+                type="text"
+                required
+                value={motivoExtra}
+                onChange={(e) => setMotivoExtra(e.target.value)}
+                placeholder="ex: Necessidade operacional específica do atendimento"
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Nº do chamado no Halo (se houver)</label>
+              <input
+                type="text"
+                value={chamadoExtra}
+                onChange={(e) => setChamadoExtra(e.target.value)}
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Observação (opcional)</label>
+              <textarea
+                value={obsExtra}
+                onChange={(e) => setObsExtra(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg bg-bg border border-border px-3 py-2 text-sm outline-none focus:border-purple resize-none"
+              />
+            </div>
+
+            {sucessoExtra && <p className="text-sm text-green">Solicitação registrada — Suprimentos já foi avisado.</p>}
+
+            <button
+              type="submit"
+              disabled={enviandoExtra}
+              className="w-full rounded-lg bg-purple hover:bg-purple/90 disabled:opacity-50 text-white font-medium py-3 text-sm transition"
+            >
+              {enviandoExtra ? "Enviando..." : "Enviar solicitação"}
+            </button>
+          </form>
+
+          {extrasRecentes.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-sm font-medium text-slate-400 mb-3">Solicitações extraordinárias recentes</h2>
+              <div className="space-y-2">
+                {extrasRecentes.map((s) => (
+                  <div key={s.id} className="bg-card border border-border rounded-lg px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{s.material_nome} × {s.quantidade}</span>
+                      <span className="text-slate-500 text-xs">{new Date(s.created_at).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                    <span className="text-slate-500 text-xs">{s.motivo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {aba === "reposicoes" && (
         <div className="px-6 mt-5 space-y-2">
           {reposicoes.length === 0 && (
@@ -645,11 +794,16 @@ export default function TecnicoPage() {
           {reposicoes.map((r) => (
             <div key={r.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-sm">{r.item_tipos?.nome} × {r.quantidade}</span>
+                <span className="font-medium text-sm">
+                  {r.item_tipos?.nome || r.material_nome_livre} × {r.quantidade}
+                </span>
                 <span className={`badge ${STATUS_REPOSICAO_COLOR[r.status]}`}>
                   {STATUS_REPOSICAO_LABEL[r.status]}
                 </span>
               </div>
+              {r.tipo === "extraordinaria" && (
+                <span className="badge bg-cyan/15 text-cyan mb-2">Extraordinária</span>
+              )}
               <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>{new Date(r.created_at).toLocaleString("pt-BR")}</span>
                 {r.codigo_retirada && (
