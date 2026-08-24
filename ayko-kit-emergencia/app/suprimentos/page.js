@@ -51,7 +51,7 @@ export default function SuprimentosPage() {
     const { data: ativasData } = await supabase
       .from("reposicoes")
       .select(
-        "id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, kits(nome), item_tipos(nome, requer_identificacao), duplas(nome), profiles!solicitado_por(nome)"
+        "id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, tipo, material_nome_livre, kits(nome), item_tipos(nome, requer_identificacao), duplas(nome), profiles!solicitado_por(nome)"
       )
       .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
@@ -60,7 +60,7 @@ export default function SuprimentosPage() {
     const { data: entreguesData } = await supabase
       .from("reposicoes")
       .select(
-        "id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)"
+        "id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, material_nome_livre, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)"
       )
       .eq("status", "entregue")
       .order("atendida_at", { ascending: false })
@@ -174,7 +174,11 @@ export default function SuprimentosPage() {
                 <span className={`badge ${STATUS_COLOR[r.status]}`}>{STATUS_LABEL[r.status]}</span>
               </div>
 
-              <p className="font-medium text-sm mb-1">{r.item_tipos?.nome} × {r.quantidade}</p>
+              {r.tipo === "extraordinaria" && (
+                <span className="badge bg-cyan/15 text-cyan mb-2">Extraordinária</span>
+              )}
+
+              <p className="font-medium text-sm mb-1">{r.item_tipos?.nome || r.material_nome_livre} × {r.quantidade}</p>
               <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
                 <span>{r.kits?.nome} · {new Date(r.created_at).toLocaleString("pt-BR")}</span>
                 {r.codigo_retirada && <span className="font-mono text-purple">Código: {r.codigo_retirada}</span>}
@@ -218,7 +222,7 @@ export default function SuprimentosPage() {
           {entregues.map((r) => (
             <div key={r.id} className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 text-sm">
               <div>
-                <span className="font-medium">{r.item_tipos?.nome} × {r.quantidade}</span>
+                <span className="font-medium">{r.item_tipos?.nome || r.material_nome_livre} × {r.quantidade}</span>
                 <span className="text-slate-500"> · {r.profiles?.nome} ({r.duplas?.nome})</span>
                 {r.identificacao_novo_item && (
                   <span className="text-slate-500"> · {r.identificacao_novo_item}</span>
