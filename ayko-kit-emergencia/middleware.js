@@ -38,13 +38,35 @@ export async function middleware(request) {
   if (user && (path === "/login" || path === "/")) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, precisa_trocar_senha")
       .eq("id", user.id)
       .single();
 
     const url = request.nextUrl.clone();
-    url.pathname = destinoPorPapel(profile?.role);
+    if (profile?.precisa_trocar_senha) {
+      url.pathname = "/perfil";
+      url.searchParams.set("obrigatorio", "1");
+    } else {
+      url.pathname = destinoPorPapel(profile?.role);
+    }
     return NextResponse.redirect(url);
+  }
+
+  // usuário logado, mas ainda precisa trocar a senha do primeiro acesso —
+  // trava qualquer navegação até ele resolver isso (menos /perfil em si)
+  if (user && !path.startsWith("/perfil") && !isPublic) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("precisa_trocar_senha")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.precisa_trocar_senha) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/perfil";
+      url.searchParams.set("obrigatorio", "1");
+      return NextResponse.redirect(url);
+    }
   }
 
   // bloqueia acesso cruzado entre áreas (ex: técnico tentando abrir /admin)
