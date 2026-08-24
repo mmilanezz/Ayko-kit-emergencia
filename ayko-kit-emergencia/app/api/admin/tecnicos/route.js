@@ -38,7 +38,7 @@ export async function GET() {
   const { data: perfis, error: erroPerfis } = await supabaseAdmin
     .from("profiles")
     .select("*, duplas(nome)")
-    .in("role", ["tecnico", "suprimentos"])
+    .in("role", ["tecnico", "suprimentos", "gestor"])
     .order("role")
     .order("nome");
   if (erroPerfis) {
