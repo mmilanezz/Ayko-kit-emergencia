@@ -133,6 +133,17 @@ function PerfilConteudo() {
     <main className="max-w-lg mx-auto pb-20">
       <TopBar titulo="Meu Perfil" subtitulo={perfil.email} />
 
+      {!obrigatorio && (
+        <div className="px-6 pt-4">
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm text-slate-400 hover:text-slate-100 flex items-center gap-1.5 transition"
+          >
+            ← Voltar
+          </button>
+        </div>
+      )}
+
       {obrigatorio && (
         <div className="mx-6 mt-6 bg-orange/10 border border-orange/30 rounded-xl p-4">
           <p className="text-sm text-orange font-medium">Primeiro acesso — troque sua senha</p>
