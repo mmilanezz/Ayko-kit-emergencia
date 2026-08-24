@@ -36,10 +36,14 @@ export default function KitsPage() {
     const { data } = await supabase
       .from("kit_item_instancias")
       .select("*, item_tipos(nome, requer_identificacao)")
-      .eq("kit_id", kitId)
-      .order("nome", { foreignTable: "item_tipos" })
-      .order("created_at");
-    setInstancias(data || []);
+      .eq("kit_id", kitId);
+
+    const ordenado = (data || []).sort((a, b) => {
+      const nomeA = a.item_tipos?.nome || "";
+      const nomeB = b.item_tipos?.nome || "";
+      return nomeA.localeCompare(nomeB, "pt-BR") || a.created_at.localeCompare(b.created_at);
+    });
+    setInstancias(ordenado);
   }
 
   async function adicionarTipo(e) {
@@ -51,8 +55,25 @@ export default function KitsPage() {
   }
 
   async function excluirTipo(id) {
-    if (!confirm("Excluir este tipo de item do catálogo? Isso não remove instâncias já criadas.")) return;
-    await supabase.from("item_tipos").delete().eq("id", id);
+    if (!confirm("Excluir este tipo de item do catálogo?")) return;
+
+    const { count } = await supabase
+      .from("kit_item_instancias")
+      .select("id", { count: "exact", head: true })
+      .eq("item_tipo_id", id);
+
+    if (count && count > 0) {
+      alert(
+        `Esse tipo de item está em uso em ${count} instância(s) espalhadas pelos kits — não dá pra excluir sem perder o histórico. Remova (ou troque) as instâncias desse item nos kits primeiro, se realmente não for mais usar.`
+      );
+      return;
+    }
+
+    const { error } = await supabase.from("item_tipos").delete().eq("id", id);
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
     carregarTipos();
   }
 
