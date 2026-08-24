@@ -11,7 +11,7 @@ function gerarSenha() {
   return s;
 }
 
-const PAPEL_LABEL = { tecnico: "Técnico", suprimentos: "Suprimentos" };
+const PAPEL_LABEL = { tecnico: "Técnico", suprimentos: "Suprimentos", gestor: "Gestor" };
 const STATUS_LABEL = { ativo: "Ativo", inativo: "Inativo", ferias: "Férias" };
 const STATUS_COLOR = {
   ativo: "bg-green/15 text-green",
@@ -181,6 +181,7 @@ export default function UsuariosPage() {
             >
               <option value="tecnico">Técnico</option>
               <option value="suprimentos">Suprimentos</option>
+              <option value="gestor">Gestor</option>
             </select>
           </div>
           {form.role === "tecnico" && (
@@ -241,7 +242,15 @@ export default function UsuariosPage() {
                 onClick={() => setExpandido(expandido === u.id ? null : u.id)}
               >
                 <span className="font-medium text-sm min-w-[10rem]">{u.nome}</span>
-                <span className={`badge ${u.role === "suprimentos" ? "bg-blue/15 text-blue" : "bg-purple/15 text-purple"}`}>
+                <span
+                  className={`badge ${
+                    u.role === "suprimentos"
+                      ? "bg-blue/15 text-blue"
+                      : u.role === "gestor"
+                      ? "bg-cyan/15 text-cyan"
+                      : "bg-purple/15 text-purple"
+                  }`}
+                >
                   {PAPEL_LABEL[u.role]}
                 </span>
                 <span className={`badge ${STATUS_COLOR[u.status || "ativo"]}`}>{STATUS_LABEL[u.status || "ativo"]}</span>
@@ -262,6 +271,7 @@ export default function UsuariosPage() {
                       >
                         <option value="tecnico">Técnico</option>
                         <option value="suprimentos">Suprimentos</option>
+                        <option value="gestor">Gestor</option>
                       </select>
                     </div>
                     {u.role === "tecnico" && (
