@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment } from "react";
 import { createClient } from "../../../lib/supabaseClient";
 import TopBar from "../../../components/TopBar";
+import ChamadoLink from "../../../components/ChamadoLink";
 
 const STATUS_LABEL = { ok: "OK", faltando: "Faltando", danificado: "Danificado" };
 
@@ -278,7 +279,7 @@ export default function RelatoriosPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{new Date(r.created_at).toLocaleString("pt-BR")}</td>
-                    <td className="px-4 py-3">{r.chamado_halo_id || "—"}</td>
+                    <td className="px-4 py-3"><ChamadoLink numero={r.chamado_halo_id} /></td>
                   </tr>
                 ))}
                 {!carregando && reposicoes.length === 0 && (
