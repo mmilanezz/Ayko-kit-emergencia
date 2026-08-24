@@ -6,6 +6,7 @@ import { useState } from "react";
 
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/gestao", label: "Gestão" },
   { href: "/admin/tecnicos", label: "Usuários" },
   { href: "/admin/kits", label: "Kits & Itens" },
   { href: "/admin/duplas", label: "Duplas" },

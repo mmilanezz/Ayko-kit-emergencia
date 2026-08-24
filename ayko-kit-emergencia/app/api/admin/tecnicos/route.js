@@ -176,7 +176,12 @@ export async function DELETE(request) {
   }
 
   const supabaseAdmin = createAdminClient();
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+
+  // a API auth.admin.deleteUser() apresentou um bug intermitente
+  // ("Database error deleting user") mesmo quando a exclusão direta
+  // no banco funciona sem problema — por isso usamos uma função SQL
+  // (via RPC) que faz a exclusão diretamente, contornando esse bug.
+  const { error } = await supabaseAdmin.rpc("excluir_usuario_auth", { p_id: id });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
