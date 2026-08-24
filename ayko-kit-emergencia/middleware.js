@@ -68,6 +68,7 @@ export async function middleware(request) {
 
 function destinoPorPapel(role) {
   if (role === "admin") return "/admin";
+  if (role === "gestor") return "/admin";
   if (role === "suprimentos") return "/suprimentos";
   return "/tecnico";
 }
