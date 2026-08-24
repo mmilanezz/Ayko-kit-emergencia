@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "../../../lib/supabaseClient";
 import TopBar from "../../../components/TopBar";
+import DatePicker from "../../../components/DatePicker";
 
 const STATUS_REPOSICAO_LABEL = {
   pendente: "Novas",
@@ -331,21 +332,11 @@ export default function GestaoPage() {
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <label className="block text-xs text-slate-500 mb-1">De</label>
-              <input
-                type="date"
-                value={filtroPatrimonioInicio}
-                onChange={(e) => setFiltroPatrimonioInicio(e.target.value)}
-                className="rounded-lg bg-card border border-border px-2 py-1.5 text-xs outline-none focus:border-purple"
-              />
+              <DatePicker value={filtroPatrimonioInicio} onChange={setFiltroPatrimonioInicio} placeholder="Início" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Até</label>
-              <input
-                type="date"
-                value={filtroPatrimonioFim}
-                onChange={(e) => setFiltroPatrimonioFim(e.target.value)}
-                className="rounded-lg bg-card border border-border px-2 py-1.5 text-xs outline-none focus:border-purple"
-              />
+              <DatePicker value={filtroPatrimonioFim} onChange={setFiltroPatrimonioFim} placeholder="Fim" />
             </div>
             <button
               onClick={exportarPatrimonioExcel}
