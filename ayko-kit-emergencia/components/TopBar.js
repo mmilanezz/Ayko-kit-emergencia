@@ -25,6 +25,13 @@ export default function TopBar({ titulo, subtitulo }) {
       <div className="flex items-center gap-2 no-print">
         <NotificationBell />
         <button
+          onClick={() => router.push("/perfil")}
+          className="text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition"
+          aria-label="Meu perfil"
+        >
+          👤
+        </button>
+        <button
           onClick={sair}
           className="text-sm text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition"
         >
