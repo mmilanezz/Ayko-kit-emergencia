@@ -30,6 +30,7 @@ export default function GestaoPage() {
   const [consumoPorDupla, setConsumoPorDupla] = useState([]);
   const [pendenciasPorKit, setPendenciasPorKit] = useState([]);
   const [atrasadas, setAtrasadas] = useState([]);
+  const [historicoPatrimonio, setHistoricoPatrimonio] = useState([]);
   const [tempoAtendimento, setTempoAtendimento] = useState({ media: null, maior: null, atrasadas: 0, concluidas: 0 });
 
   useEffect(() => {
@@ -131,6 +132,15 @@ export default function GestaoPage() {
       concluidas: duracoes.length,
       atrasadas: abertasAtrasadas.length,
     });
+
+    // ---- HISTÓRICO DE ALTERAÇÃO DE PATRIMÔNIO ----
+    const { data: auditoriaPatrimonio } = await supabase
+      .from("auditoria")
+      .select("id, dados, created_at, profiles(nome)")
+      .eq("acao", "alterar_patrimonio")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setHistoricoPatrimonio(auditoriaPatrimonio || []);
 
     setCarregando(false);
   }
@@ -268,6 +278,27 @@ export default function GestaoPage() {
             ))}
             {atrasadas.length === 0 && <p className="text-sm text-slate-500">Nenhuma solicitação atrasada.</p>}
           </div>
+        </div>
+      </section>
+
+      {/* HISTÓRICO DE PATRIMÔNIO */}
+      <section className="px-6 mt-6">
+        <h2 className="text-sm font-medium text-slate-400 mb-3">Últimas alterações de patrimônio</h2>
+        <div className="space-y-2">
+          {historicoPatrimonio.map((a) => (
+            <div key={a.id} className="bg-card border border-border rounded-lg px-4 py-2.5 text-sm">
+              <p>
+                Alterado de <span className="font-mono text-slate-300">{a.dados?.valor_anterior || "—"}</span> para{" "}
+                <span className="font-mono text-purple">{a.dados?.valor_novo || "—"}</span>
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {a.profiles?.nome || "—"} · {new Date(a.created_at).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          ))}
+          {historicoPatrimonio.length === 0 && (
+            <p className="text-sm text-slate-500">Nenhuma alteração de patrimônio registrada ainda.</p>
+          )}
         </div>
       </section>
     </main>
