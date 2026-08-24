@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabaseClient";
 import TopBar from "../../components/TopBar";
 
-export default function PerfilPage() {
+function PerfilConteudo() {
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -228,5 +228,13 @@ export default function PerfilPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function PerfilPage() {
+  return (
+    <Suspense fallback={<main className="p-6 text-slate-400">Carregando...</main>}>
+      <PerfilConteudo />
+    </Suspense>
   );
 }
