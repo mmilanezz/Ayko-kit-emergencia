@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "../../lib/supabaseClient";
 import TopBar from "../../components/TopBar";
+import ChamadoLink from "../../components/ChamadoLink";
 
 const STATUS_LABEL = { ok: "OK", faltando: "Faltando", danificado: "Danificado" };
 const STATUS_COLOR = {
@@ -736,7 +737,7 @@ export default function TecnicoPage() {
                       <span className="font-medium">
                         {u.kit_item_instancias?.item_tipos?.nome || u.item_tipos?.nome} × {u.quantidade}
                       </span>
-                      <span className="text-slate-500 text-xs">Halo #{u.chamado_halo_id}</span>
+                      <span className="text-slate-500 text-xs">Halo #<ChamadoLink numero={u.chamado_halo_id} /></span>
                     </div>
                     <span className="text-slate-500 text-xs">
                       {u.motivo} · {new Date(u.created_at).toLocaleString("pt-BR")}
