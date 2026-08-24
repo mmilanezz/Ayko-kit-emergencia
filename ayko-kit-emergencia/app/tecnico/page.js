@@ -105,26 +105,33 @@ export default function TecnicoPage() {
     if (perfilData?.duplas?.kit_id) {
       const kitId = perfilData.duplas.kit_id;
 
-      const { data: instancias } = await supabase
+      const { data: instanciasData } = await supabase
         .from("kit_item_instancias")
         .select("*, item_tipos(nome, tipo_controle, requer_identificacao)")
-        .eq("kit_id", kitId)
-        .order("nome", { foreignTable: "item_tipos" })
-        .order("created_at");
-      setItens(instancias || []);
+        .eq("kit_id", kitId);
+
+      const instancias = (instanciasData || []).sort((a, b) => {
+        const nomeA = a.item_tipos?.nome || "";
+        const nomeB = b.item_tipos?.nome || "";
+        return nomeA.localeCompare(nomeB, "pt-BR") || a.created_at.localeCompare(b.created_at);
+      });
+      setItens(instancias);
 
       const respostasIniciais = {};
-      (instancias || []).forEach((i) => {
+      instancias.forEach((i) => {
         respostasIniciais[i.id] = { status: "ok", identificacao: i.identificacao || "" };
       });
       setRespostas(respostasIniciais);
 
-      const { data: par } = await supabase
+      const { data: parData } = await supabase
         .from("kit_material_config")
         .select("*, item_tipos(nome, tipo_controle)")
-        .eq("kit_id", kitId)
-        .order("nome", { foreignTable: "item_tipos" });
-      setParConfig(par || []);
+        .eq("kit_id", kitId);
+
+      const par = (parData || []).sort((a, b) =>
+        (a.item_tipos?.nome || "").localeCompare(b.item_tipos?.nome || "", "pt-BR")
+      );
+      setParConfig(par);
 
       const { data: saldos } = await supabase
         .from("kit_saldo_material")
