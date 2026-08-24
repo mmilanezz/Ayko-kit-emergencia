@@ -31,11 +31,20 @@ export default function GestaoPage() {
   const [pendenciasPorKit, setPendenciasPorKit] = useState([]);
   const [atrasadas, setAtrasadas] = useState([]);
   const [historicoPatrimonio, setHistoricoPatrimonio] = useState([]);
+  const [expandidoPatrimonio, setExpandidoPatrimonio] = useState(false);
+  const [filtroPatrimonioInicio, setFiltroPatrimonioInicio] = useState("");
+  const [filtroPatrimonioFim, setFiltroPatrimonioFim] = useState("");
+  const [kitsMap, setKitsMap] = useState({});
+  const [itemTiposMap, setItemTiposMap] = useState({});
   const [tempoAtendimento, setTempoAtendimento] = useState({ media: null, maior: null, atrasadas: 0, concluidas: 0 });
 
   useEffect(() => {
     carregar();
   }, []);
+
+  useEffect(() => {
+    carregarPatrimonio();
+  }, [expandidoPatrimonio, filtroPatrimonioInicio, filtroPatrimonioFim]);
 
   async function carregar() {
     setCarregando(true);
@@ -133,16 +142,47 @@ export default function GestaoPage() {
       atrasadas: abertasAtrasadas.length,
     });
 
-    // ---- HISTÓRICO DE ALTERAÇÃO DE PATRIMÔNIO ----
-    const { data: auditoriaPatrimonio } = await supabase
+    // mapas de nome (kit/item), usados só pra exibir/exportar o histórico de patrimônio
+    const mapaKits = {};
+    (kitsData || []).forEach((k) => { mapaKits[k.id] = k.nome; });
+    setKitsMap(mapaKits);
+
+    const { data: itemTiposData } = await supabase.from("item_tipos").select("id, nome");
+    const mapaItens = {};
+    (itemTiposData || []).forEach((i) => { mapaItens[i.id] = i.nome; });
+    setItemTiposMap(mapaItens);
+
+    setCarregando(false);
+  }
+
+  async function carregarPatrimonio() {
+    let query = supabase
       .from("auditoria")
       .select("id, dados, created_at, profiles(nome)")
       .eq("acao", "alterar_patrimonio")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    setHistoricoPatrimonio(auditoriaPatrimonio || []);
+      .order("created_at", { ascending: false });
 
-    setCarregando(false);
+    if (filtroPatrimonioInicio) query = query.gte("created_at", filtroPatrimonioInicio);
+    if (filtroPatrimonioFim) query = query.lte("created_at", filtroPatrimonioFim + "T23:59:59");
+    if (!expandidoPatrimonio) query = query.limit(10);
+
+    const { data } = await query;
+    setHistoricoPatrimonio(data || []);
+  }
+
+  async function exportarPatrimonioExcel() {
+    const XLSX = await import("xlsx");
+    const linhas = historicoPatrimonio.map((a) => ({
+      Data: new Date(a.created_at).toLocaleString("pt-BR"),
+      Usuário: a.profiles?.nome || "—",
+      "Valor anterior": a.dados?.valor_anterior || "—",
+      "Valor novo": a.dados?.valor_novo || "—",
+      Kit: kitsMap[a.dados?.kit_id] || "—",
+      Item: itemTiposMap[a.dados?.item_tipo_id] || "—",
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), "Patrimônio");
+    XLSX.writeFile(wb, `ayko-patrimonio-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   function formatarHoras(h) {
@@ -283,21 +323,64 @@ export default function GestaoPage() {
 
       {/* HISTÓRICO DE PATRIMÔNIO */}
       <section className="px-6 mt-6">
-        <h2 className="text-sm font-medium text-slate-400 mb-3">Últimas alterações de patrimônio</h2>
-        <div className="space-y-2">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+          <h2 className="text-sm font-medium text-slate-400">
+            {expandidoPatrimonio ? "Todas as alterações de patrimônio" : "Últimas alterações de patrimônio"}
+            {expandidoPatrimonio && ` (${historicoPatrimonio.length})`}
+          </h2>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">De</label>
+              <input
+                type="date"
+                value={filtroPatrimonioInicio}
+                onChange={(e) => setFiltroPatrimonioInicio(e.target.value)}
+                className="rounded-lg bg-card border border-border px-2 py-1.5 text-xs outline-none focus:border-purple"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Até</label>
+              <input
+                type="date"
+                value={filtroPatrimonioFim}
+                onChange={(e) => setFiltroPatrimonioFim(e.target.value)}
+                className="rounded-lg bg-card border border-border px-2 py-1.5 text-xs outline-none focus:border-purple"
+              />
+            </div>
+            <button
+              onClick={exportarPatrimonioExcel}
+              className="text-xs border border-border rounded-lg px-3 py-2 text-slate-300 hover:border-purple hover:text-purple transition"
+            >
+              Exportar Excel
+            </button>
+            <button
+              onClick={() => setExpandidoPatrimonio(!expandidoPatrimonio)}
+              className="text-xs border border-border rounded-lg px-3 py-2 text-purple hover:border-purple transition"
+            >
+              {expandidoPatrimonio ? "Ver só as recentes" : "Ver histórico completo"}
+            </button>
+          </div>
+        </div>
+
+        <div className={`space-y-2 ${expandidoPatrimonio ? "max-h-[32rem] overflow-y-auto pr-1" : ""}`}>
           {historicoPatrimonio.map((a) => (
             <div key={a.id} className="bg-card border border-border rounded-lg px-4 py-2.5 text-sm">
-              <p>
-                Alterado de <span className="font-mono text-slate-300">{a.dados?.valor_anterior || "—"}</span> para{" "}
-                <span className="font-mono text-purple">{a.dados?.valor_novo || "—"}</span>
-              </p>
+              <div className="flex items-center justify-between">
+                <p>
+                  Alterado de <span className="font-mono text-slate-300">{a.dados?.valor_anterior || "—"}</span> para{" "}
+                  <span className="font-mono text-purple">{a.dados?.valor_novo || "—"}</span>
+                </p>
+                <span className="text-xs text-slate-500">
+                  {kitsMap[a.dados?.kit_id] || ""}{itemTiposMap[a.dados?.item_tipo_id] ? ` · ${itemTiposMap[a.dados.item_tipo_id]}` : ""}
+                </span>
+              </div>
               <p className="text-xs text-slate-500 mt-1">
                 {a.profiles?.nome || "—"} · {new Date(a.created_at).toLocaleString("pt-BR")}
               </p>
             </div>
           ))}
           {historicoPatrimonio.length === 0 && (
-            <p className="text-sm text-slate-500">Nenhuma alteração de patrimônio registrada ainda.</p>
+            <p className="text-sm text-slate-500">Nenhuma alteração de patrimônio no período selecionado.</p>
           )}
         </div>
       </section>
