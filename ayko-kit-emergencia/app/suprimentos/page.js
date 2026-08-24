@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "../../lib/supabaseClient";
 import TopBar from "../../components/TopBar";
+import ChamadoLink from "../../components/ChamadoLink";
 
 const STATUS_LABEL = {
   pendente: "Pendente",
@@ -191,7 +192,7 @@ export default function SuprimentosPage() {
               </div>
 
               <p className="text-xs text-slate-500 mb-3">
-                Chamado no Halo: <span className="font-mono text-slate-300">{r.chamado_halo_id || "—"}</span>
+                Chamado no Halo: <ChamadoLink numero={r.chamado_halo_id} className="font-mono" />
               </p>
 
               {r.item_tipos?.requer_identificacao && (
@@ -241,7 +242,9 @@ export default function SuprimentosPage() {
                 )}
               </div>
               <span className="text-xs text-slate-500">
-                {r.chamado_halo_id ? `Halo #${r.chamado_halo_id} · ` : ""}
+                {r.chamado_halo_id && (
+                  <>Halo #<ChamadoLink numero={r.chamado_halo_id} /> · </>
+                )}
                 {r.atendida_at ? new Date(r.atendida_at).toLocaleDateString("pt-BR") : ""}
               </span>
             </div>
