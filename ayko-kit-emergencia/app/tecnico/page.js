@@ -49,6 +49,8 @@ export default function TecnicoPage() {
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const [historico, setHistorico] = useState([]);
+  const [veiculos, setVeiculos] = useState([]);
+  const [veiculoSelecionado, setVeiculoSelecionado] = useState("");
 
   // -- usar material --
   const [selecaoUso, setSelecaoUso] = useState("");
@@ -81,6 +83,14 @@ export default function TecnicoPage() {
 
     setPerfil(perfilData);
     setDupla(perfilData?.duplas);
+    setVeiculoSelecionado(perfilData?.duplas?.veiculo_atual_id || "");
+
+    const { data: veiculosData } = await supabase
+      .from("veiculos")
+      .select("*")
+      .eq("ativo", true)
+      .order("placa");
+    setVeiculos(veiculosData || []);
 
     if (perfilData?.duplas?.kit_id) {
       const kitId = perfilData.duplas.kit_id;
@@ -112,7 +122,7 @@ export default function TecnicoPage() {
 
       const { data: conferenciasAnteriores } = await supabase
         .from("conferencias")
-        .select("id, tipo, created_at, observacoes")
+        .select("id, tipo, created_at, observacoes, profiles(nome)")
         .eq("dupla_id", perfilData.dupla_id)
         .order("created_at", { ascending: false })
         .limit(5);
@@ -147,6 +157,22 @@ export default function TecnicoPage() {
     setEnviando(true);
 
     const { data: { user } } = await supabase.auth.getUser();
+
+    // se o técnico trocou o veículo (ou está definindo pela primeira vez),
+    // registra isso no histórico de custódia antes de seguir com a conferência
+    if (veiculoSelecionado && veiculoSelecionado !== dupla.veiculo_atual_id) {
+      const { error: erroVeiculo } = await supabase.rpc("trocar_veiculo_dupla", {
+        p_dupla_id: perfil.dupla_id,
+        p_novo_veiculo_id: veiculoSelecionado,
+        p_usuario_id: user.id,
+        p_motivo: `Conferência (${tipoConferencia === "recebimento" ? "recebimento" : "devolução"})`,
+      });
+      if (erroVeiculo) {
+        setEnviando(false);
+        alert("Erro ao registrar veículo: " + erroVeiculo.message);
+        return;
+      }
+    }
 
     const { data: conferencia, error: erroConferencia } = await supabase
       .from("conferencias")
@@ -396,10 +422,27 @@ export default function TecnicoPage() {
                     tipoConferencia === tipo ? "bg-purple/15 border-purple text-purple" : "border-border text-slate-400"
                   }`}
                 >
-                  {tipo === "recebimento" ? "Recebimento do carro" : "Devolução do carro"}
+                  {tipo === "recebimento" ? "Recebimento do kit" : "Devolução do kit"}
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-2xl p-5 mb-5">
+            <label className="block text-sm text-slate-400 mb-2">Veículo</label>
+            <select
+              required
+              value={veiculoSelecionado}
+              onChange={(e) => setVeiculoSelecionado(e.target.value)}
+              className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+            >
+              <option value="">Selecione o veículo</option>
+              {veiculos.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.placa}{v.modelo ? ` · ${v.modelo}` : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-3">
@@ -473,7 +516,10 @@ export default function TecnicoPage() {
               <div className="space-y-2">
                 {historico.map((h) => (
                   <div key={h.id} className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 text-sm">
-                    <span>{h.tipo === "recebimento" ? "Recebimento" : "Devolução"}</span>
+                    <div>
+                      <span>{h.tipo === "recebimento" ? "Recebimento" : "Devolução"}</span>
+                      <span className="text-slate-500"> · {h.profiles?.nome || "—"}</span>
+                    </div>
                     <span className="text-slate-500">{new Date(h.created_at).toLocaleString("pt-BR")}</span>
                   </div>
                 ))}
