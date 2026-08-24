@@ -109,6 +109,7 @@ export default function TecnicoPage() {
         .from("kit_item_instancias")
         .select("*, item_tipos(nome, tipo_controle, requer_identificacao)")
         .eq("kit_id", kitId)
+        .order("nome", { foreignTable: "item_tipos" })
         .order("created_at");
       setItens(instancias || []);
 
@@ -121,7 +122,8 @@ export default function TecnicoPage() {
       const { data: par } = await supabase
         .from("kit_material_config")
         .select("*, item_tipos(nome, tipo_controle)")
-        .eq("kit_id", kitId);
+        .eq("kit_id", kitId)
+        .order("nome", { foreignTable: "item_tipos" });
       setParConfig(par || []);
 
       const { data: saldos } = await supabase
