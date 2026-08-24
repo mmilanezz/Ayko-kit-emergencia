@@ -53,8 +53,7 @@ export default function TecnicoPage() {
   const [veiculoSelecionado, setVeiculoSelecionado] = useState("");
 
   // -- usar material --
-  const [selecaoUso, setSelecaoUso] = useState("");
-  const [quantidadeUso, setQuantidadeUso] = useState(1);
+  const [itensUso, setItensUso] = useState([{ selecao: "", quantidade: 1 }]);
   const [chamadoHalo, setChamadoHalo] = useState("");
   const [motivoUso, setMotivoUso] = useState("");
   const [obsUso, setObsUso] = useState("");
@@ -266,30 +265,46 @@ export default function TecnicoPage() {
     setTimeout(() => setSucesso(false), 4000);
   }
 
+  function atualizarItemUso(index, campo, valor) {
+    setItensUso((prev) => prev.map((item, i) => (i === index ? { ...item, [campo]: valor } : item)));
+  }
+
+  function adicionarItemUso() {
+    setItensUso((prev) => [...prev, { selecao: "", quantidade: 1 }]);
+  }
+
+  function removerItemUso(index) {
+    setItensUso((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function enviarUsoMaterial(e) {
     e.preventDefault();
-    if (!selecaoUso || !chamadoHalo.trim() || !motivoUso) return;
+    const validos = itensUso.filter((item) => item.selecao);
+    if (validos.length === 0 || !chamadoHalo.trim() || !motivoUso) return;
 
     setEnviandoUso(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    const [modo, id] = selecaoUso.split(":");
-    const payload = {
-      tecnico_id: user.id,
-      dupla_id: perfil.dupla_id,
-      chamado_halo_id: chamadoHalo.trim(),
-      motivo: motivoUso,
-      observacao: obsUso || null,
-      quantidade: modo === "quantidade" ? Number(quantidadeUso) || 1 : 1,
-    };
-    if (modo === "instancia") {
-      payload.instancia_id = id;
-    } else {
-      payload.kit_id = dupla.kit_id;
-      payload.item_tipo_id = id;
-    }
+    const payloads = validos.map((item) => {
+      const [modo, id] = item.selecao.split(":");
+      const base = {
+        tecnico_id: user.id,
+        dupla_id: perfil.dupla_id,
+        chamado_halo_id: chamadoHalo.trim(),
+        motivo: motivoUso,
+        observacao: obsUso || null,
+        quantidade: modo === "quantidade" ? Number(item.quantidade) || 1 : 1,
+      };
+      if (modo === "instancia") {
+        base.instancia_id = id;
+      } else {
+        base.kit_id = dupla.kit_id;
+        base.item_tipo_id = id;
+      }
+      return base;
+    });
 
-    const { error } = await supabase.from("usos_campo").insert(payload);
+    const { error } = await supabase.from("usos_campo").insert(payloads);
     setEnviandoUso(false);
 
     if (error) {
@@ -297,10 +312,14 @@ export default function TecnicoPage() {
       return;
     }
 
-    const nomeItem =
-      modo === "instancia"
-        ? itens.find((i) => i.id === id)?.item_tipos?.nome
-        : parConfig.find((p) => p.item_tipo_id === id)?.item_tipos?.nome;
+    const itensNotificacao = validos.map((item) => {
+      const [modo, id] = item.selecao.split(":");
+      const nome =
+        modo === "instancia"
+          ? itens.find((i) => i.id === id)?.item_tipos?.nome
+          : parConfig.find((p) => p.item_tipo_id === id)?.item_tipos?.nome;
+      return { nome, status: `${motivoUso} — chamado Halo ${chamadoHalo.trim()}` };
+    });
 
     fetch("/api/notificar-reposicao", {
       method: "POST",
@@ -308,13 +327,12 @@ export default function TecnicoPage() {
       body: JSON.stringify({
         duplaNome: dupla.nome,
         kitNome: dupla.kits?.nome || "",
-        itens: [{ nome: nomeItem, status: `${motivoUso} — chamado Halo ${chamadoHalo.trim()}` }],
+        itens: itensNotificacao,
       }),
     }).catch(() => {});
 
     setSucessoUso(true);
-    setSelecaoUso("");
-    setQuantidadeUso(1);
+    setItensUso([{ selecao: "", quantidade: 1 }]);
     setChamadoHalo("");
     setMotivoUso("");
     setObsUso("");
@@ -595,39 +613,70 @@ export default function TecnicoPage() {
       {aba === "usar" && (
         <div className="px-6 mt-5">
           <p className="text-xs text-slate-500 mb-4">
-            Usou um material do kit direto num atendimento? Registre aqui — a
-            reposição já é gerada na hora, sem esperar a próxima conferência.
+            Usou mais de um material do kit no mesmo atendimento? Adicione
+            quantos precisar com o botão "+" — desde que seja o mesmo
+            chamado, dá tudo numa solicitação só.
           </p>
 
           <form onSubmit={enviarUsoMaterial} className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">O que você usou?</label>
-              <select
-                required
-                value={selecaoUso}
-                onChange={(e) => setSelecaoUso(e.target.value)}
-                className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
-              >
-                <option value="">Selecione o material</option>
-                {opcoesUso.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {selecaoUso.startsWith("quantidade:") && (
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">Quantidade</label>
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={quantidadeUso}
-                  onChange={(e) => setQuantidadeUso(e.target.value)}
-                  className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
-                />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm text-slate-400">O que você usou?</label>
+                <button
+                  type="button"
+                  onClick={adicionarItemUso}
+                  className="text-xs text-purple hover:underline flex items-center gap-1"
+                >
+                  + Adicionar item
+                </button>
               </div>
-            )}
+
+              <div className="space-y-3">
+                {itensUso.map((item, index) => {
+                  const jaSelecionados = itensUso.filter((_, i) => i !== index).map((it) => it.selecao);
+                  const opcoesFiltradas = opcoesUso.filter((o) => !jaSelecionados.includes(o.value));
+                  return (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <select
+                          required
+                          value={item.selecao}
+                          onChange={(e) => atualizarItemUso(index, "selecao", e.target.value)}
+                          className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+                        >
+                          <option value="">Selecione o material {itensUso.length > 1 ? `(item ${index + 1})` : ""}</option>
+                          {opcoesFiltradas.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+
+                        {item.selecao.startsWith("quantidade:") && (
+                          <input
+                            type="number"
+                            min={1}
+                            required
+                            value={item.quantidade}
+                            onChange={(e) => atualizarItemUso(index, "quantidade", e.target.value)}
+                            placeholder="Quantidade"
+                            className="w-full rounded-lg bg-bg border border-border px-3 py-2.5 text-sm outline-none focus:border-purple"
+                          />
+                        )}
+                      </div>
+
+                      {itensUso.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerItemUso(index)}
+                          className="text-red text-xs border border-border rounded-lg px-2.5 py-2.5 hover:border-red transition"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm text-slate-400 mb-2">Motivo</label>
