@@ -37,6 +37,7 @@ export default function KitsPage() {
       .from("kit_item_instancias")
       .select("*, item_tipos(nome, requer_identificacao)")
       .eq("kit_id", kitId)
+      .order("nome", { foreignTable: "item_tipos" })
       .order("created_at");
     setInstancias(data || []);
   }
