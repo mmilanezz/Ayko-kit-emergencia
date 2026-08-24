@@ -39,7 +39,7 @@ export default function SuprimentosPage() {
   const supabase = createClient();
   const [ativas, setAtivas] = useState([]);
   const [entregues, setEntregues] = useState([]);
-  const [chamadoInput, setChamadoInput] = useState({});
+  const [identificacaoInput, setIdentificacaoInput] = useState({});
   const [agruparPor, setAgruparPor] = useState("tecnico"); // "tecnico" | "dupla"
   const [filtro, setFiltro] = useState("");
 
@@ -50,14 +50,18 @@ export default function SuprimentosPage() {
   async function carregar() {
     const { data: ativasData } = await supabase
       .from("reposicoes")
-      .select("id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
+      .select(
+        "id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, kits(nome), item_tipos(nome, requer_identificacao), duplas(nome), profiles!solicitado_por(nome)"
+      )
       .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
     setAtivas(ativasData || []);
 
     const { data: entreguesData } = await supabase
       .from("reposicoes")
-      .select("id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)")
+      .select(
+        "id, status, quantidade, atendida_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, kits(nome), item_tipos(nome), duplas(nome), profiles!solicitado_por(nome)"
+      )
       .eq("status", "entregue")
       .order("atendida_at", { ascending: false })
       .limit(15);
@@ -68,10 +72,18 @@ export default function SuprimentosPage() {
     const proximo = PROXIMO_STATUS[reposicao.status];
     if (!proximo) return;
 
+    // ao confirmar a entrega de um item que exige identificação
+    // (patrimônio/série), exige que o Suprimentos já tenha informado
+    const identificacao = identificacaoInput[reposicao.id];
+    if (proximo === "entregue" && reposicao.item_tipos?.requer_identificacao && !identificacao) {
+      alert("Informe o número de patrimônio/identificação do item antes de confirmar a entrega.");
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
 
     const payload = { status: proximo, atendida_por: user.id };
-    if (chamadoInput[reposicao.id]) payload.chamado_halo_id = chamadoInput[reposicao.id];
+    if (identificacao) payload.identificacao_novo_item = identificacao;
 
     const { error } = await supabase.from("reposicoes").update(payload).eq("id", reposicao.id);
     if (error) {
@@ -168,17 +180,24 @@ export default function SuprimentosPage() {
                 {r.codigo_retirada && <span className="font-mono text-purple">Código: {r.codigo_retirada}</span>}
               </div>
 
-              <div className="flex gap-2">
+              <p className="text-xs text-slate-500 mb-3">
+                Chamado no Halo: <span className="font-mono text-slate-300">{r.chamado_halo_id || "—"}</span>
+              </p>
+
+              {r.item_tipos?.requer_identificacao && (
                 <input
                   type="text"
-                  placeholder="Nº do chamado no Halo (se ainda não informado)"
-                  defaultValue={r.chamado_halo_id || ""}
-                  onChange={(e) => setChamadoInput({ ...chamadoInput, [r.id]: e.target.value })}
-                  className="flex-1 rounded-lg bg-bg border border-border px-3 py-2 text-xs outline-none focus:border-purple"
+                  placeholder="Nº de patrimônio / identificação do item que está repondo"
+                  defaultValue={r.identificacao_novo_item || ""}
+                  onChange={(e) => setIdentificacaoInput({ ...identificacaoInput, [r.id]: e.target.value })}
+                  className="w-full mb-2 rounded-lg bg-bg border border-border px-3 py-2 text-xs outline-none focus:border-purple"
                 />
+              )}
+
+              <div className="flex gap-2">
                 <button
                   onClick={() => avancarStatus(r)}
-                  className="rounded-lg bg-purple text-white text-xs font-medium px-4 py-2 whitespace-nowrap"
+                  className="flex-1 rounded-lg bg-purple text-white text-xs font-medium px-4 py-2 whitespace-nowrap"
                 >
                   {BOTAO_LABEL[r.status]}
                 </button>
@@ -201,6 +220,9 @@ export default function SuprimentosPage() {
               <div>
                 <span className="font-medium">{r.item_tipos?.nome} × {r.quantidade}</span>
                 <span className="text-slate-500"> · {r.profiles?.nome} ({r.duplas?.nome})</span>
+                {r.identificacao_novo_item && (
+                  <span className="text-slate-500"> · {r.identificacao_novo_item}</span>
+                )}
               </div>
               <span className="text-xs text-slate-500">
                 {r.chamado_halo_id ? `Halo #${r.chamado_halo_id} · ` : ""}
