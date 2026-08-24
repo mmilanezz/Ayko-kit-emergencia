@@ -51,7 +51,7 @@ export default function SuprimentosPage() {
     const { data: ativasData } = await supabase
       .from("reposicoes")
       .select(
-        "id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, tipo, material_nome_livre, kits(nome), item_tipos(nome, requer_identificacao), duplas(nome), profiles!solicitado_por(nome)"
+        "id, status, quantidade, created_at, chamado_halo_id, codigo_retirada, identificacao_novo_item, tipo, material_nome_livre, kits(nome), item_tipos(nome, requer_identificacao), duplas(nome), profiles!solicitado_por(nome), conferencia_itens(kit_item_instancias(identificacao)), usos_campo(kit_item_instancias(identificacao))"
       )
       .in("status", ["pendente", "separando", "separado", "pronto_retirada"])
       .order("created_at", { ascending: false });
@@ -66,6 +66,12 @@ export default function SuprimentosPage() {
       .order("atendida_at", { ascending: false })
       .limit(15);
     setEntregues(entreguesData || []);
+  }
+
+  function identificacaoAntiga(r) {
+    return r.conferencia_itens?.kit_item_instancias?.identificacao
+      || r.usos_campo?.kit_item_instancias?.identificacao
+      || null;
   }
 
   async function avancarStatus(reposicao) {
@@ -189,13 +195,19 @@ export default function SuprimentosPage() {
               </p>
 
               {r.item_tipos?.requer_identificacao && (
-                <input
-                  type="text"
-                  placeholder="Nº de patrimônio / identificação do item que está repondo"
-                  defaultValue={r.identificacao_novo_item || ""}
-                  onChange={(e) => setIdentificacaoInput({ ...identificacaoInput, [r.id]: e.target.value })}
-                  className="w-full mb-2 rounded-lg bg-bg border border-border px-3 py-2 text-xs outline-none focus:border-purple"
-                />
+                <>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Patrimônio que está faltando no kit:{" "}
+                    <span className="font-mono text-orange">{identificacaoAntiga(r) || "não informado"}</span>
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Nº de patrimônio / identificação do item que está repondo"
+                    defaultValue={r.identificacao_novo_item || ""}
+                    onChange={(e) => setIdentificacaoInput({ ...identificacaoInput, [r.id]: e.target.value })}
+                    className="w-full mb-2 rounded-lg bg-bg border border-border px-3 py-2 text-xs outline-none focus:border-purple"
+                  />
+                </>
               )}
 
               <div className="flex gap-2">
