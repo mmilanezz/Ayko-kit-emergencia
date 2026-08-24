@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "../lib/supabaseClient";
+import NotificationBell from "./NotificationBell";
 
 export default function TopBar({ titulo, subtitulo }) {
   const router = useRouter();
@@ -21,12 +22,15 @@ export default function TopBar({ titulo, subtitulo }) {
         <h1 className="text-lg font-semibold">{titulo}</h1>
         {subtitulo && <p className="text-sm text-slate-400">{subtitulo}</p>}
       </div>
-      <button
-        onClick={sair}
-        className="text-sm text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition no-print"
-      >
-        Sair
-      </button>
+      <div className="flex items-center gap-2 no-print">
+        <NotificationBell />
+        <button
+          onClick={sair}
+          className="text-sm text-slate-400 hover:text-slate-100 border border-border rounded-lg px-3 py-1.5 transition"
+        >
+          Sair
+        </button>
+      </div>
     </header>
   );
 }
